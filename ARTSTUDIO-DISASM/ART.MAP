@@ -1,0 +1,33 @@
+RT-11 LINK  V05.45 	Load Map 	Saturday 14-Dec-2024 16:00  Page 1
+ART   .SAV   	Title:	ART   	Ident:	      	
+
+Section  Addr	Size	Global	Value	Global	Value	Global	Value
+
+ . ABS.	 000000	001002 = 257.    words  (RW,I,GBL,ABS,OVR)
+			.UHAND	000020	.VHAND	000020	
+ $OHAND	 001002	000104 = 34.     words  (RW,I,GBL,REL,CON)
+			$OVRH 	001002	O$READ	001050	O$DONE	001062	
+			$ODF1 	001102	$ODF2 	001104	
+ $OTABL	 001106	000274 = 94.     words  (RW,D,GBL,REL,OVR)
+			$OVTAB	001106	
+ 	 001402	064230 = 13388.  words  (RW,I,LCL,REL,CON)
+ Segment size = 065632 = 13773.  words
+
+Overlay region	000001	Segment 000001
+ 	 065634	011310 = 2404.   words  (RW,I,LCL,REL,CON)
+			ART10 @	065634	ART11 @	072076	
+ Segment size = 011310 = 2404.   words
+
+Overlay region	000001	Segment 000002
+ 	 065634	010742 = 2289.   words  (RW,I,LCL,REL,CON)
+			ART20 @	065634	ART21 @	065636	ART22 @	066134	
+			ART23 @	066160	ART24 @	066574	ART25 @	066624	
+			ART26 @	066634	ART27 @	071174	ART28 @	071306	
+			ART29 @	071356	ART30 @	071504	ART31 @	071554	
+			ART32 @	072440	ART33 @	072704	ART34 @	073030	
+			ART35 @	073576	ART36 @	073602	ART37 @	075344	
+			ART38 @	075346	ART39 @	075366	
+ Segment size = 010742 = 2289.   words
+
+
+Transfer address = 024454, High limit = 077142 = 16177.  words

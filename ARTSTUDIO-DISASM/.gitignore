@@ -1,0 +1,8 @@
+/x-*
+/.vscode
+/*.OBJ
+/*.LST
+/*.MAP
+/*.SAV
+/*.DAT
+/*.log
