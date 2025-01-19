@@ -57,3 +57,5 @@ if "%undefg%"=="" (
   echo %ESCchar%[91m======= LINK FAILED =======%ESCchar%[0m
   exit /b
 )
+
+fc /b ART.SAV.etalon1 ART.SAV
