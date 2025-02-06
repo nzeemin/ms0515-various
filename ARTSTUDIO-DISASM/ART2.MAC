@@ -215,7 +215,7 @@ L66770: ROLB	R0
 	BHIS	L67000
 	RETURN
 L67000: CALL	K42334
-	MOV	K30536, R5
+	MOV	K30536, R5		; get BuffAddr
 	CLR	(R5)+
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
@@ -772,14 +772,14 @@ L71702: MOV	R3, -(SP)
 	MOVB	#000024, K25521		; set _Attrs
 	CALL	K25244			; EXX
 L71722: CALL	L72050
-	CALL	K12054
+	CALL	K12054			; PutCursor
 	CALL	K25244			; EXX
 L71736: NOP
 	DECB	K25521
 	BNE	L71736
 	MOVB	#000005, K25521		; set _Attrs
 	CALL	K25244			; EXX
-	CALL	K13110
+	CALL	K13110			; JCursHide
 	CALL	L72050
 	CALL	K25244			; EXX
 	MOV	R3, -(SP)
@@ -976,7 +976,7 @@ L72754: MOV	#000145, R3
 L73024: JMP	K13644
 ;
 ; Overlay call
-; Выбрано увеличение x2 / x4 / x8
+; MagnifySel: Выбрано увеличение x2 / x4 / x8 в меню "Увелич."
 ART34::
 L73030: MOVB	K25521, R0
 	INC	R0
@@ -1009,9 +1009,9 @@ L73104: MOV	#000001, R0
 ; Entry point
 L73174: MOV	#177777, K53062
 	MOV	#177777, K53064
-	MOV	#000002, R0
-	CALL	K62000
-	CALL	K12054
+	MOV	#000002, R0		; cursor 2
+	CALL	K62000			; SetCursAddr
+	CALL	K12054			; PutCursor
 	CALL	K61754			; Clean input buffer
 L73230: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
@@ -1021,10 +1021,10 @@ L73230: CALL	K45776			; Read input and set ScanCode
 	MOV	#177777, K53064
 L73262: CALL	K62036			; Process ScanCode into X/Y change
 L73266: NOP
-	CALL	K13110
+	CALL	K13110			; JCursHide
 	CALL	L73536
 	BNE	L73370
-	CALL	K12054
+	CALL	K12054			; PutCursor
 	BR	L73230
 L73310: CALL	L74740
 	MOV	K53062, R1
@@ -1034,16 +1034,16 @@ L73310: CALL	L74740
 	SUB	R2, R4
 	BEQ	L73262
 L73334: NOP
-	CALL	K13110
+	CALL	K13110			; JCursHide
 	CALL	K42334
 	CALL	L73622
 	MOV	R3, K53062
 	MOV	R4, K53064
-	CALL	K12054
+	CALL	K12054			; PutCursor
 	BR	L73262
-L73370: CLR	R0
-	CALL	K62000
-L73376: CALL	K12054
+L73370: CLR	R0			; cursor 0
+	CALL	K62000			; SetCursAddr
+L73376: CALL	K12054			; PutCursor
 	CALL	K61754			; Clean input buffer
 L73406: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
@@ -1051,18 +1051,18 @@ L73406: CALL	K45776			; Read input and set ScanCode
 	BNE	L73476
 	CALL	K62036			; Process ScanCode into X/Y change
 L73430: NOP
-	CALL	K61706
-	CALL	K13110
+	CALL	K61706			; cp_ArrFire
+	CALL	K13110			; JCursHide
 	CMP	K65276, #K52456
 	BNE	L73464
 	CALL	L73536
 	BNE	L73464
 	JMP	L73174
-L73464: CALL	K12054
+L73464: CALL	K12054			; PutCursor
 	CALL	K62414			; MenuCheck
 	BR	L73406
 L73476: CALL	K61700
-	CALL	K13110
+	CALL	K13110			; JCursHide
 	CALL	K62652			; MenuSel
 	CMP	K65276, #K52456
 	BNE	L73376
@@ -1085,16 +1085,16 @@ L73536: MOV	K53076, R3
 	JMP	K63554
 ;
 ; Overlay call
-; Выбрано "Сетка" в меню "Увелич."
+; MagnGrid: Выбрано "Сетка" в меню "Увелич."
 ART35::
-L73576: COM	K23124
+L73576: COM	K23124			; invert GridFlag
 ;
 ; Overlay call
 ART36::
-L73602: MOV	K23124, R0
-	MOV	#000202, R3
-	MOV	#000102, R4
-	JMP	K17154
+L73602: MOV	K23124, R0		; get GridFlag
+	MOV	#000202, R3		; 130.
+	MOV	#000102, R4		; 66.
+	JMP	K17154			; PrtFlagXY
 ;
 ; Subroutine ??
 L73622: CALL	L74740
@@ -1378,7 +1378,7 @@ L75314: MOV	K56146, R3		; get W_XCoord
 	MOV	K56152, R1
 	MOV	K56154, R2
 	CALL	K60404
-	MOV	K30536, R3
+	MOV	K30536, R3		; get BuffAddr
 ;
 ; Overlay call
 ART37::
@@ -1519,7 +1519,7 @@ L76114: CLR	K25514
 	MOV	#000100, R0		; 40h = '@'
 	CALL	K65356			; Send to printer
 	MOV	<K23720+2>, SP
-	JMP	K24742
+	JMP	K24742			; START2
 ;
 ; Subroutine ??
 L76150: MOV	R0, -(SP)
