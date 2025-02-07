@@ -12,7 +12,7 @@
 ; Меню "Редактор шрифта" / "Смесь"
 
 ; Overlay call
-; Выбран пункт "Текст" в главном меню
+; TextMenu: Выбран пункт "Текст" в главном меню
 ART10::
 J65634: MOV	056110, R0
 	MOV	R0, -(SP)
@@ -234,7 +234,7 @@ J67570: MOV	J72060, R3
 	MOV	#000050, R1
 J67600: MOVB	#000377, (R3)+
 	SOB	R1, J67600
-	CALL	K42334
+	CALL	K42334			; MakeAttrs
 	COM	K17524			; invert InvertFl
 	TST	K17526			; check PixelMode
 	BEQ	J67632
@@ -277,7 +277,7 @@ J67766: CALL	J70550
 J67772: MOV	J72060, R3
 	MOV	#J72040, R2
 	CALL	J70336
-	CALL	K42334
+	CALL	K42334			; MakeAttrs
 	TST	K17526			; check PixelMode
 	BEQ	J70024
 	CLR	K17524			; clear InvertFl
