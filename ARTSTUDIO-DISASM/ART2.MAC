@@ -4,6 +4,12 @@
 ; Overlay #2
 ; Size of this overlay: 2289. words
 
+; Подготовка меню "Заливка"
+; FillTexture
+; FillWashTexure
+; Меню "Выбери текстуру"
+; Процедуры меню "Ред. тектуры"
+
 ; Overlay call
 ; Подготовка меню FILL_MENU
 FILLIT::
@@ -108,7 +114,7 @@ L66202: MOVB	(R3)+, (R2)+
 ;
 L66252:	.ASCII	/экрана :/
 ;
-; SELTEX_INIT:
+; SELTEX_INIT: Подготовка меню "Выбери текстуру"
 L66262: MOV	#K10330, R5		; TextureAddr
 	MOV	#000037, R3
 	MOV	#000067, R4
@@ -816,7 +822,7 @@ L72046: RETURN
 ; Subroutine ??
 L72050: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
-	BIT	#000020, R0
+	BIT	#000020, R0		; selection?
 	BEQ	L72070
 	RETURN
 L72070: MOV	(SP)+, R3
@@ -1030,7 +1036,7 @@ L73174: MOV	#177777, K53062
 	CALL	K61754			; PassFire
 L73230: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
-	BIT	#000020, R0
+	BIT	#000020, R0		; selection?
 	BNE	L73310
 	MOV	#177777, K53062
 	MOV	#177777, K53064
@@ -1062,7 +1068,7 @@ L73376: CALL	K12054			; PutCursor
 	CALL	K61754			; PassFire
 L73406: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
-	BIT	#000020, R0
+	BIT	#000020, R0		; selection?
 	BNE	L73476
 	CALL	K62036			; Process ScanCode into X/Y change
 L73430: NOP
@@ -1416,7 +1422,7 @@ L75370: MOV	R0, -(SP)
 	CALL	K54052
 	CALL	K26476
 	MOV	#034000, R0
-	CALL	K25024
+	CALL	K25024			; ClearScreen
 	MOV	(SP)+, R0
 	MOV	SP, <K23720+2>
 	MOV	R0, -(SP)
@@ -1512,7 +1518,7 @@ L76014: MOV	(SP)+, R2
 	MOV	#000015, R0		; 0Dh
 	CALL	K65356			; Send to printer
 	MOVB	#000012, R0		; 0Ah
-	TST	K40304
+	TST	K40304			; check "Перевод строки"
 	BEQ	L76050
 	CALL	K65356			; Send to printer
 L76050: TST	K40300
