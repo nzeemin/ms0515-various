@@ -140,9 +140,9 @@ K12100:	MOV	K62376, R4		; get Mouse Y
 	BHIS	K12114
 	CLR	R4
 K12114: CALL	K13114			; CursSave
-	TSTB	K62362
-	BNE	K12132			; => P_Curs1
-	JMP	K12612			; => PutCursMain
+	TSTB	K62362			; cursor = 0 ?
+	BNE	K12132			; not 0 => P_Curs1
+	JMP	K12612			; cursor 0 => PutCursMain
 ;
 ; Subroutine P_Curs1
 K12132: MOV	K62400, R5		; get CurCursAddr
@@ -788,7 +788,7 @@ K15652: BIC	#000200, K25506		; screen in memory off
 	MOV	K25506, @#177400	; Memory control MS0515
 	RETURN
 ;
-; Subroutine _HrzLine (9 usages)
+; Subroutine _HrzLine (16 usages)
 K15670::JSR	R5, K15424
 	CALL	K11450			; GetMasks
 	CALL	K27752			; PixAddr0
@@ -2584,9 +2584,9 @@ K30550:	CALL	K63530			; MenuBack
 	CALL	K26476
 	MOV	#000010, R0
 	CLR	R3
-	MOV	#030610, R2
+	MOV	#K30610, R2		; jump addr
 	MOVB	#000377, K25521		; set _Attrs
-	JMP	K61246
+	JMP	K61246			; EDIT
 K30610: CALL	K42334			; MakeAttrs
 	CLR	K17526			; clear PixelMode
 	MOV	K21252, R0		; get DefInvFl
@@ -2649,9 +2649,9 @@ K31034: MOVB	K25521, R0		; get _Attrs
 	CALL	K26476
 	MOV	#000007, R0
 	CLR	R3
-	MOV	#031104, R2
+	MOV	#K31104, R2		; jump addr
 	MOVB	#000377, K25521		; set _Attrs
-	JMP	K61246
+	JMP	K61246			; EDIT
 K31104: CALL	K42334			; MakeAttrs
 	CLR	K17526			; clear PixelMode
 	MOV	K21252, K17524		; DefInvFl ->
@@ -2692,9 +2692,9 @@ K31254: MOVB	K25521, R0		; get _Attrs
 	CALL	K26476
 	MOV	#000006, R0
 	CLR	R3
-	MOV	#031324, R2
+	MOV	#K31324, R2		; jump addr
 	MOVB	#000004, K25521		; set _Attrs
-	JMP	K61246
+	JMP	K61246			; EDIT
 K31324: CALL	K42334			; MakeAttrs
 	CLR	K17526			; clear PixelMode
 	MOV	K21252, K17524		; DefInvFl ->
@@ -3149,7 +3149,7 @@ K34422: CALL	K54052
 	CALL	K27156
 K34436: CALL	K45776			; Read input and set ScanCode
 	BIT	#000020, K46222		; selection?
-	BEQ	K34436
+	BEQ	K34436			; no => wait
 	JMP	K24742			; START2
 ;
 ; ClearScreen: Выбран пункт "Очистка экрана" в меню "Смесь"
@@ -4719,7 +4719,7 @@ K47064: MOV	K62374, K52176		; Mouse X -> ShapesX
 	CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	K47254
+	BNE	K47254			; yes =>
 	CALL	K62036			; Process ScanCode into X/Y change
 K47122: NOP
 	BEQ	K47064
@@ -4730,7 +4730,7 @@ K47122: NOP
 	CALL	K12132			; P_Curs1
 	MOV	(SP)+, K62376		; restore Mouse Y
 	MOV	(SP)+, K62374		; restore Mouse X
-	CALL	K61670			; cp_ArrY
+	CALL	K61670			; cp_ArrY: cursor in menu?
 	BHIS	K47332
 	CALL	K12132			; P_Curs1
 	TST	K52166			; check ElasticFl
@@ -4763,13 +4763,13 @@ K47344: CALL	K12054			; PutCursor
 	CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BEQ	K47372
+	BEQ	K47372			; no =>
 	JMP	K61224
 K47372: CALL	K62036			; Process ScanCode into X/Y change
 K47376: NOP
 	CALL	K61706			; cp_ArrFire
 	CALL	K13110			; JCursHide
-	CALL	K61670			; cp_ArrY
+	CALL	K61670			; cp_ArrY: cursor in menu?
 	BHIS	K47344
 	MOV	K62374, K52176		; Mouse X
 	MOV	K62376, K52200		; Mouse Y
@@ -5358,7 +5358,7 @@ K53142: CALL	K61754			; PassFire
 K53146: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	K53356
+	BNE	K53356			; yes =>
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	R3, -(SP)
@@ -5435,12 +5435,12 @@ K53542:	CALL	K61754			; PassFire
 K53546: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	K53662
+	BNE	K53662			; yes =>
 	CALL	K62036			; Process ScanCode into X/Y change
 K53570: NOP
 	CALL	K61706			; cp_ArrFire
 	CALL	K13110			; JCursHide
-	CALL	K61670			; cp_ArrY
+	CALL	K61670			; cp_ArrY: cursor in menu?
 	BLO	K53616
 	CALL	K12054			; PutCursor
 	BR	K53546
@@ -6344,7 +6344,7 @@ K61150: CALL	K12054			; PutCursor
 	CALL	K61754			; PassFire
 K61160: CALL	K45776			; Read input and set ScanCode
 	BIT	#000020, K46222		; selection?
-	BNE	K61224
+	BNE	K61224			; yes =>
 	CALL	K62036			; Process ScanCode into X/Y change
 K61200: NOP
 	CALL	K61706			; cp_ArrFire
@@ -6355,7 +6355,7 @@ K61200: NOP
 K61224: CALL	K61700			; MenuBeep
 	MOV	K30534, SP		; restore SP: STK_Q -> SP
 	CALL	K13110			; JCursHide
-	CALL	K62652			; MenuSel
+	CALL	K62652			; MenuSel: process click in this menu
 	BR	K61150
 ;
 ; EDIT:
@@ -6363,9 +6363,9 @@ K61246::MOV	R0, K62364
 	MOVB	K25521, K62366
 	MOV	R3, K62370
 	MOV	R2, K62372		; set _Jp_Addr
-	CALL	K61670			; cp_ArrY
+	CALL	K61670			; cp_ArrY: cursor in menu?
 	MOV	#K61302, R3
-	BHIS	K61520
+	BHIS	K61520			; => EDIT7
 K61302: MOV	K62364, R0
 	CALL	K62000			; SetCursAddr
 	CALL	K12054			; PutCursor
@@ -6377,12 +6377,12 @@ K61336:	CALL	K62036			; Process ScanCode into X/Y change
 K61342: NOP
 	CALL	K61706			; cp_ArrFire
 	CALL	K13110			; JCursHide
-	CALL	K61670			; cp_ArrY
+	CALL	K61670			; cp_ArrY: cursor in menu?
 	MOV	#K61302, R3
-	BHIS	K61520
+	BHIS	K61520			; => EDIT7
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	K61416
+	BNE	K61416			; yes =>
 	CALL	K12054			; PutCursor
 	MOV	K62370, R3
 	BEQ	K61322
@@ -6402,7 +6402,7 @@ K61452: MOV	R1, -(SP)
 	MOV	(SP)+, R1
 	MOV	K46222, R0		; get ScanCode
 	CMPB	R0, #000020		; selection?
-	BNE	K61336
+	BNE	K61336			; yes =>
 	CALL	K61762
 K61500: NOP
 	MOVB	R1, R0
@@ -6412,20 +6412,22 @@ K61500: NOP
 	CALL	K13110			; JCursHide
 	BR	K61416
 ;
+; EDIT7:
 K61520::MOV	R3, -(SP)
 	CLR	R0			; cursor 0
 	CALL	K62000			; SetCursAddr
+; EDIT8
 K61530:	CALL	K12054			; PutCursor
 K61534:	CALL	K61754			; PassFire
 K61540: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	K61612
+	BNE	K61612			; yes =>
 	CALL	K62036			; Process ScanCode into X/Y change
 K61562: NOP
 	CALL	K61706			; cp_ArrFire
 	CALL	K13110			; JCursHide
-	CALL	K61670			; cp_ArrY
+	CALL	K61670			; cp_ArrY: cursor in menu?
 	BHIS	K61604
 	RETURN
 K61604: CALL	K12054			; PutCursor
@@ -6434,21 +6436,22 @@ K61612: CALL	K61700			; MenuBeep
 	CALL	K63366			; MenuExe
 	TST	R3
 	BEQ	K61534
-	MOV	#025666, R2
+	MOV	#K25666, R2		; SCRN_UP
 	CMP	R2, R3
 	BEQ	K61652
-	MOV	#025526, R2
+	MOV	#K25526, R2		; SCRN_DN
 	CMP	R2, R3
 	BEQ	K61652
 	JMP	K61224
-K61652: MOV	#K61530, R3
+K61652: MOV	#K61530, R3		; => EDIT8
 	MOV	R3, -(SP)
 	MOV	R2, -(SP)
 	JMP	K13110			; JCursHide
 ;
-K61666: .WORD	000113			; ??
+; _JPHL_: NOT USED
+K61666: JMP	(R3)
 ;
-; Subroutine cp_ArrY
+; Subroutine cp_ArrY: Проверка, находится ли курсор мыши в меню
 K61670::CMP	#000030, K62376		; check Mouse Y
 	RETURN
 ;
@@ -6480,14 +6483,15 @@ K61754::EMT	340			; .TTYINR
 ;
 ; Subroutine ??
 K61762: MOV	K62410, K62404
-	MOV	#000001, K62402
+	MOV	#000001, K62402		; set mouse movement
 	RETURN
 ;
 ; Subroutine SetCursAddr
-K62000::MOV	R0, K62362
+; R0 = cursor number
+K62000::MOV	R0, K62362		; save cursor number
 	ASL	R0
 	ADD	#K06122, R0		; + TabCursor
-	MOV	(R0), R3
+	MOV	(R0), R3		; get cursor addr from the table
 	MOV	R3, K62400		; set CurCursAddr
 	MOV	#000005, K62406
 	MOV	#000017, K62410
@@ -6512,28 +6516,28 @@ K62066: MOV	#K62404, R3
 	CMP	R0, (R3)
 	BLO	K62122
 	INC	(R3)
-K62122: MOV	K62402, R1
+K62122: MOV	K62402, R1		; get mouse movement
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000002, R0		; left?
-	BEQ	K62160
+	BEQ	K62160			; no =>
 	CALL	K62306			; _DecXc - Move left
 K62160: BIT	#000001, R0		; right?
-	BEQ	K62172
+	BEQ	K62172			; no =>
 	CALL	K62316			; _IncXc - Move right
 K62172: BIT	#000004, R0		; up?
-	BEQ	K62204
+	BEQ	K62204			; no =>
 	CALL	K62334			; _DecYc - Move up
 K62204: BIT	#000010, R0		; down?
-	BEQ	K62216
+	BEQ	K62216			; no =>
 	CALL	K62344			; _IncYc - Move down
 K62216: BIT	#000200, R0		; ??
-	BEQ	K62234
-	MOV	#000240, R3
-	MOV	#000014, R4
+	BEQ	K62234			; no =>
+	MOV	#000240, R3		; 160. menu center
+	MOV	#000014, R4		; 12.
 K62234: MOV	R3, K62374		; set Mouse X
 	MOV	R4, K62376		; set Mouse Y
 	MOV	SP, K62304
@@ -6576,36 +6580,36 @@ K62344: ADD	R1, R4
 	MOV	#000307, R4		; 199.
 K62360: RETURN
 ;
-K62362: .WORD	0			; ??
+K62362: .WORD	0			; cursor number
 K62364: .WORD	000007			; ??
 K62366: .WORD	000377			; ??
 K62370: .WORD	0			; ??
-K62372: .WORD	031104			; _Jp_Addr
+K62372: .WORD	K31104			; _Jp_Addr
 K62374::.WORD	000244			; Mouse X = 0..319.
 K62376::.WORD	000032			; Mouse Y = 0..219.
-K62400: .WORD	007516			; CurCursAddr = Cursor0
-K62402: .WORD	000001			; ?? (ldb7c)
-K62404: .WORD	000017			; ??
-K62406: .WORD	000005			; ?? (ldb7e)
-K62410: .WORD	000017			; ??
+K62400: .WORD	K07516			; CurCursAddr = Cursor_0
+K62402: .WORD	1			; ?? (ldb7c) Mouse movement
+K62404: .WORD	15.			; ??
+K62406: .WORD	5			; ?? (ldb7e) 5 or 10.
+K62410: .WORD	15.			; ?? 10. or 15.
 K62412: .WORD	0			; ?? (ldb80)
 ;
 ; Subroutine MenuCheck
 K62414::MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), K65300		; set Menu_Xb
 	MOV	000002(R5), K65302
-	ADD	#000016, R5
-K62436:	CMPB	(R5), #000377
-	BNE	K62446
+	ADD	#000016, R5		; +14. to first menu item
+K62436:	CMPB	(R5), #000377		; end of menu?
+	BNE	K62446			; no => continue
 	RETURN
-K62446: MOV	(R5), R3
-	MOV	000002(R5), R4
+K62446: MOV	(R5), R3		; get menu item X
+	MOV	000002(R5), R4		; get menu item Y
 	ADD	K65300, R3		; + Menu_Xb
 	ADD	K65302, R4
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	000004(R5), R1		; get menu item Width
+	MOV	000006(R5), R2		; get menu item Height
 	CALL	K63554			; MenuRange
-	BEQ	K62522			; cursor out =>
+	BEQ	K62522			; cursor not in menu item =>
 ; Cursor is in menu
 	BITB	#000001, 000012(R5)
 	BEQ	K62630
@@ -6634,28 +6638,28 @@ K62566: NOP
 	CALL	K13644			; PixInvert
 	CALL	K12054			; PutCursor
 	MOV	(SP)+, R5
-K62630: ADD	#000014, R5		; 12.
-K62634: CALL	K65242			; M_SkipChr
-	BNE	K62634
-	INC	R5
-	BIC	#000001, R5
-	BR	K62436
+K62630: ADD	#000014, R5		; + 12. to next menu item
+K62634: CALL	K65242			; M_SkipChr: Skip menu item character
+	BNE	K62634			; skip till end of sequence
+	INC	R5			; after the sequence
+	BIC	#000001, R5		; make it even
+	BR	K62436			; => continue menu items loop
 ;
 ; Subroutine MenuSel
 K62652::MOV	K65276, R5		; get Menu_Addr
-	MOV	(R5), R3
-	MOV	000002(R5), R4
+	MOV	(R5), R3		; get menu X
+	MOV	000002(R5), R4		; get menu Y
 	MOV	R3, K65300		; set Menu_Xb
 	MOV	R4, K65302
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	000004(R5), R1		; get menu Width
+	MOV	000006(R5), R2		; get menu Height
 	CALL	K63554			; MenuRange
-	BEQ	K62716			; cursor out =>
+	BEQ	K62716			; cursor not in menu =>
 	JMP	K63270
-K62716: ADD	#000016, R5		; + 14.
+K62716: ADD	#000016, R5		; + 14. to first menu item
 	MOVB	#177777, K25521		; set _Attrs
-K62730: CMPB	(R5), #000377
-	BNE	K62740
+K62730: CMPB	(R5), #000377		; end of menu?
+	BNE	K62740			; no => continue
 	RETURN
 K62740: TST	000010(R5)
 	BEQ	K63026
@@ -6664,21 +6668,21 @@ K62740: TST	000010(R5)
 	INCB	K25521
 K62762: BITB	#000002, 000012(R5)
 	BNE	K63026
-	MOV	(R5), R3
-	MOV	000002(R5), R4
+	MOV	(R5), R3		; get menu item X
+	MOV	000002(R5), R4		; get menu item Y
 	ADD	K65300, R3		; + Menu_Xb
 	ADD	K65302, R4
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	000004(R5), R1		; get menu item Width
+	MOV	000006(R5), R2		; get menu item Height
 	CALL	K63554			; MenuRange
-	BEQ	K63050			; cursor out =>
-; Cursor is in menu
-K63026: ADD	#000014, R5		; + 12.
-K63032: CALL	K65242			; M_SkipChr
-	BNE	K63032
-	INC	R5
-	BIC	#000001, R5
-	BR	K62730
+	BEQ	K63050			; cursor not in menu item =>
+; Cursor is in menu item
+K63026: ADD	#000014, R5		; + 12. to next menu item
+K63032: CALL	K65242			; M_SkipChr: Skip menu item character
+	BNE	K63032			; skip till end of sequence
+	INC	R5			; after the sequence
+	BIC	#000001, R5		; make it even
+	BR	K62730			; => continue menu items loop
 K63050: BITB	#000010, 000013(R5)
 	BEQ	K63214
 	MOV	000010(R5), -(SP)
@@ -6744,35 +6748,36 @@ K63356: BICB	#000001, 000012(R5)
 	RETURN
 ;
 ; Subroutine MenuExe
+; Returns: R3 = menu item handler addr or 0
 K63366: MOV	K65276, R5		; get Menu_Addr
-	MOV	(R5), R3
-	MOV	000002(R5), R4
+	MOV	(R5), R3		; get menu X
+	MOV	000002(R5), R4		; get menu Y
 	MOV	R3, K65300		; set Menu_Xb
 	MOV	R4, K65302
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	000004(R5), R1		; get menu Width
+	MOV	000006(R5), R2		; get menu Height
 	CALL	K63554			; MenuRange
-	BNE	K63524			; cursor out =>
+	BNE	K63524			; cursor not in menu =>
 ; Cursor is in menu
-	ADD	#000016, R5		; + 14.
-K63432:	CMPB	(R5), #000377
-	BEQ	K63524
-	MOV	(R5), R3
-	MOV	000002(R5), R4
+	ADD	#000016, R5		; + 14. to first menu item
+K63432:	CMPB	(R5), #000377		; end of menu?
+	BEQ	K63524			; yes =>
+	MOV	(R5), R3		; get menu item X
+	MOV	000002(R5), R4		; get menu item Y
 	ADD	K65300, R3		; + Menu_Xb
 	ADD	K65302, R4
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	000004(R5), R1		; get menu item Width
+	MOV	000006(R5), R2		; get menu item Height
 	CALL	K63554			; MenuRange
-	BEQ	K63516			; cursor out =>
+	BEQ	K63516			; cursor not in menu item box =>
 ; Cursor is in menu
-	ADD	#000014, R5		; + 12.
-K63500: CALL	K65242			; M_SkipChr
-	BNE	K63500
-	INC	R5
-	BIC	#000001, R5
-	BR	K63432
-K63516: MOV	000010(R5), R3
+	ADD	#000014, R5		; + 12. to next menu item
+K63500: CALL	K65242			; M_SkipChr: Skip menu item character
+	BNE	K63500			; skip till end of sequence
+	INC	R5			; after the sequence
+	BIC	#000001, R5		; make it even
+	BR	K63432			; => continue menu items loop
+K63516: MOV	000010(R5), R3		; get menu item handler addr
 	RETURN
 K63524: CLR	R3
 	RETURN
@@ -7112,11 +7117,13 @@ K65226: INC	R5
 	INC	R5
 	BR	K65126
 ;
-; Subroutine M_SkipChr
-K65242: MOVB	(R5)+, R0
+; Subroutine M_SkipChr: Skip menu item character
+; R5 = addr in menu item string
+; Returns: R0 = current character, Z = end of sequence, R5 incremented to next character
+K65242: MOVB	(R5)+, R0		; get char
 	BNE	K65250
 	RETURN
-K65250: CMPB	R0, #000030
+K65250: CMPB	R0, #000030		; code?
 	BLO	K65262
 K65256:	TST	R0
 	RETURN

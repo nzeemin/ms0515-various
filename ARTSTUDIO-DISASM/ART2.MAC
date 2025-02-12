@@ -28,10 +28,10 @@ L65656: MOV	R0, L66702
 	CALL	K26476
 	MOV	#000003, R0
 	CLR	R3
-	MOV	#066706, R2
+	MOV	#L66706, R2		; jump addr
 	CLRB	K25521
-	JMP	K61246
-;
+	JMP	K61246			; EDIT
+; (ld188)
 L65714: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	SUB	#000040, R3
@@ -823,10 +823,11 @@ L72046: RETURN
 L72050: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BEQ	L72070
+	BEQ	L72070			; no =>
 	RETURN
 L72070: MOV	(SP)+, R3
 	RETURN
+;
 L72074: JMP	(R3)
 ;
 ; Subroutine ??
@@ -1010,8 +1011,8 @@ L73052: MOV	R0, K53054		; set MagnifyX
 	CALL	K26476
 	MOV	#000004, R0
 	CLR	R3
-	MOV	#L73104, R2
-	JMP	K61246
+	MOV	#L73104, R2		; jump addr
+	JMP	K61246			; EDIT
 ;
 L73104: MOV	#000001, R0
 	CALL	K42704			; SetBorder
@@ -1037,7 +1038,7 @@ L73174: MOV	#177777, K53062
 L73230: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	L73310
+	BNE	L73310			; yes =>
 	MOV	#177777, K53062
 	MOV	#177777, K53064
 L73262: CALL	K62036			; Process ScanCode into X/Y change
@@ -1069,7 +1070,7 @@ L73376: CALL	K12054			; PutCursor
 L73406: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
-	BNE	L73476
+	BNE	L73476			; yes =>
 	CALL	K62036			; Process ScanCode into X/Y change
 L73430: NOP
 	CALL	K61706			; cp_ArrFire
