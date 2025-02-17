@@ -29,7 +29,7 @@ L65656: MOV	R0, L66702
 	MOV	#000003, R0
 	CLR	R3
 	MOV	#L66706, R2		; jump addr
-	CLRB	K25521
+	CLRB	K25521			; clear _Attrs2
 	JMP	K61246			; EDIT
 ; (ld188)
 L65714: MOV	K62374, R3		; get Mouse X
@@ -105,10 +105,10 @@ L66202: MOVB	(R3)+, (R2)+
 	MOV	#L66466, R5		; SELTEX_MENU
 	MOV	K65276, 000012(R5)
 	MOV	R5, K65276		; set Menu_Addr
-	MOV	(R5), R3
-	MOV	000002(R5), R4
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	(R5), R3		; get X
+	MOV	000002(R5), R4		; get Y
+	MOV	000004(R5), R1		; get width
+	MOV	000006(R5), R2		; get height
 	CALL	K13264
 	JMP	K63646			; MenuOpen
 ;
@@ -155,7 +155,7 @@ L66372: DEC	R0
 	ASL	R4
 	ADD	R1, R4
 	ADD	#000067, R4
-	MOVB	#000003, K25521		; set _Attrs
+	MOVB	#000003, K25521		; set _Attrs2
 	DEC	R3
 	DEC	R4
 	MOV	#000024, R1
@@ -295,7 +295,7 @@ L67272: MOV	R3, -(SP)
 	CALL	K20352			; Put byte on the screen
 	MOV	R0, L71172
 	MOVB	R0, K25520
-	MOVB	#000010, K25521		; set _Attrs
+	MOVB	#000010, K25521		; set _Attrs2
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	MOV	R3, R0
@@ -384,7 +384,7 @@ L67614: BNE	L67652
 L67652: MOV	#177777, L71170
 L67660:	MOVB	K25520, R0
 	BNE	L67756
-	MOVB	K25521, R0		; get _Attrs
+	MOVB	K25521, R0		; get _Attrs2
 	CMPB	R0, #000010
 	BNE	L67756
 	MOV	R2, R0
@@ -411,7 +411,7 @@ L67756: MOV	(SP)+, R0
 	CALL	L70510
 	CALL	L70602
 	CLR	R2
-L70004: MOVB	K25521, R0
+L70004: MOVB	K25521, R0		; get _Attrs2
 	SUB	R0, R1
 	BHIS	L70016
 	RETURN
@@ -489,7 +489,7 @@ L70272: CLR	R0
 L70322: TST	R1
 	BEQ	L70330
 	DEC	R1
-L70330: DECB	K25521
+L70330: DECB	K25521			; decrement _Attrs2
 	RETURN
 ; Entry point
 L70336: MOV	R2, R0
@@ -530,7 +530,7 @@ L70466: RORB	R0
 	BR	L70272
 ; Entry point
 L70510: BIC	#000007, R3
-	MOVB	K25521, R0		; get _Attrs
+	MOVB	K25521, R0		; get _Attrs2
 	TST	L71162
 	BMI	L70536
 	ADD	#000010, R3
@@ -788,17 +788,17 @@ L71642: MOV	R4, K53070
 L71702: MOV	R3, -(SP)
 	CALL	(R3)
 	MOV	(SP)+, R3
-	MOVB	#000024, K25521		; set _Attrs
+	MOVB	#000024, K25521		; set _Attrs2
 	CALL	K25244			; EXX
 L71722: CALL	L72050
 	CALL	K12054			; PutCursor
 	CALL	K25244			; EXX
 L71736: NOP
-	DECB	K25521
+	DECB	K25521			; decrement _Attrs2
 	BNE	L71736
-	MOVB	#000005, K25521		; set _Attrs
+	MOVB	#000005, K25521		; set _Attrs2
 	CALL	K25244			; EXX
-	CALL	K13110			; JCursHide
+	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	L72050
 	CALL	K25244			; EXX
 	MOV	R3, -(SP)
@@ -917,16 +917,16 @@ L72432: ASL	R1
 ; Overlay call
 ; LensSelX:
 LENSEL::
-L72440: MOVB	K25521, R0		; get _Attrs
+L72440: MOVB	K25521, R0		; get _Attrs2
 	INC	R0
 	ASL	R0
 	CMP	R0, #000005
 	BLO	L72462
 	ADD	#000002, R0
 L72462: MOV	R0, K53054		; set MagnifyX
-	MOVB	R0, K25521		; set _Attrs
+	MOVB	R0, K25521		; set _Attrs2
 	MOV	K23120, R0		; get LensCurX
-	CMPB	R0, K25521
+	CMPB	R0, K25521		; check _Attrs2
 	BNE	L72506
 	RETURN
 L72506: CALL	L72634			; PutXLens
@@ -971,12 +971,12 @@ L72700: JMP	K13644			; PixInvert
 ; Overlay call
 ; EditModeSel: Выбрано "Уст" / "Сброс" / "Toggle" в LENS_MENU
 ART33::
-L72704: MOVB	K25521, R0
+L72704: MOVB	K25521, R0		; get _Attrs2
 	SUB	#000003, R0
 	MOV	R0, K53060		; set NewEditMode
-	MOVB	R0, K25521		; set _Attrs
+	MOVB	R0, K25521		; set _Attrs2
 	MOV	K53056, R0		; get CurEditMode
-	CMPB	R0, K25521
+	CMPB	R0, K25521		; check _Attrs2
 	BNE	L72740
 	RETURN
 L72740: CALL	L72754			; PutEditMode
@@ -1000,7 +1000,7 @@ L73024: JMP	K13644			; PixInvert
 ; Overlay call
 ; MagnifySel: Выбрано увеличение x2 / x4 / x8 в меню "Увелич."
 MAGSEL::
-L73030: MOVB	K25521, R0
+L73030: MOVB	K25521, R0		; get _Attrs2
 	INC	R0
 	ASL	R0
 	CMP	R0, #000005
@@ -1043,7 +1043,7 @@ L73230: CALL	K45776			; Read input and set ScanCode
 	MOV	#177777, K53064
 L73262: CALL	K62036			; Process ScanCode into X/Y change
 L73266: NOP
-	CALL	K13110			; JCursHide
+	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	L73536
 	BNE	L73370
 	CALL	K12054			; PutCursor
@@ -1056,7 +1056,7 @@ L73310: CALL	L74740
 	SUB	R2, R4
 	BEQ	L73262
 L73334: NOP
-	CALL	K13110			; JCursHide
+	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	K42334			; MakeAttrs
 	CALL	L73622
 	MOV	R3, K53062
@@ -1074,7 +1074,7 @@ L73406: CALL	K45776			; Read input and set ScanCode
 	CALL	K62036			; Process ScanCode into X/Y change
 L73430: NOP
 	CALL	K61706			; cp_ArrFire
-	CALL	K13110			; JCursHide
+	CALL	K13110			; JCursHide: Restore area under cursor
 	CMP	K65276, #K52456
 	BNE	L73464
 	CALL	L73536
@@ -1084,7 +1084,7 @@ L73464: CALL	K12054			; PutCursor
 	CALL	K62414			; MenuCheck
 	BR	L73406
 L73476: CALL	K61700			; MenuBeep
-	CALL	K13110			; JCursHide
+	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	K62652			; MenuSel
 	CMP	K65276, #K52456
 	BNE	L73376
@@ -1411,7 +1411,7 @@ L75344: RETURN
 ART38::
 L75346: MOV	#000002, R0
 	CALL	K42704			; SetBorder
-	MOVB	K25521, R0		; get _Attrs
+	MOVB	K25521, R0		; get _Attrs2
 	INC	R0
 	BR	L75370
 

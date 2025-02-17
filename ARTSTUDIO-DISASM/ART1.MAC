@@ -30,10 +30,10 @@ J65634: MOV	K56110, R0
 J65712: MOV	#065756, R5
 	MOV	K65276, 000012(R5)
 	MOV	R5, K65276		; set Menu_Addr
-	MOV	(R5), R3
-	MOV	000002(R5), R4
-	MOV	000004(R5), R1
-	MOV	000006(R5), R2
+	MOV	(R5), R3		; get X
+	MOV	000002(R5), R4		; get Y
+	MOV	000004(R5), R1		; get width
+	MOV	000006(R5), R2		; get height
 	CALL	K13264
 	JMP	K63646			; MenuOpen
 ;
@@ -114,7 +114,7 @@ J65756: .WORD	000160,000010,000170,000260
 J66724: JMP	001132 ; ART11
 ;
 ; T_Direct: Выбрано "Слева направо" или "Сверху вниз" в меню "Текст"
-J66730: MOVB	K25521, R0
+J66730: MOVB	K25521, R0		; get _Attrs2
 	MOV	R0, J72030		; set DirectFl
 	CALL	K54052
 	CALL	K26476
@@ -127,18 +127,18 @@ J66730: MOVB	K25521, R0
 	ASL	R0
 	ASL	R0
 	ASL	R0
-	MOVB	R0, K25521		; set _Attrs
+	MOVB	R0, K25521		; set _Attrs2
 	TST	J72064
 	BEQ	J67030
-	MOVB	K25521, R0		; get _Attrs
-	MOVB	K25520, K25521		; -> _Attrs
+	MOVB	K25521, R0		; get _Attrs2
+	MOVB	K25520, K25521		; -> _Attrs2
 	MOVB	R0, K25520
 J67030: MOVB	K25520, J72024
-	MOVB	K25521, J72026
+	MOVB	K25521, J72026		; _Attrs2 ->
 	MOV	K30536, R3		; get BuffAddr
 	INC	R3
 	MOVB	K25520, (R3)+
-	MOVB	K25521, (R3)+
+	MOVB	K25521, (R3)+		; _Attrs2 ->
 	MOV	R3, J72060
 	MOV	#000011, R0		; cursor 9.
 	CALL	K62000			; SetCursAddr
@@ -543,7 +543,7 @@ J71170: MOV	R3, J72032
 	RETURN
 ;
 ; Subroutine ??
-J71202: MOVB	#000377, K17523
+J71202: MOVB	#000377, K17523		; set _Attrs1
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
 	MOV	J72032, R3
@@ -598,7 +598,7 @@ J71416: CALL	J71244
 	JMP	J72000
 ;
 ; T_Height: Выбрана высота (Нормал. / Двойная / Тройная) в меню "Текст"
-J71456: MOVB	K25521, R0		; get _Attrs
+J71456: MOVB	K25521, R0		; get _Attrs2
 	DEC	R0
 	MOV	R0, J72020		; set HeightFl
 	CALL	J71244
@@ -618,7 +618,7 @@ J71474: MOV	J72020, R0		; get HeightFl
 	BR	J71642
 ;
 ; T_Width: Выбрана ширина (Нормал. / Двойная / Тройная) в меню "Текст"
-J71550: MOVB	K25521, R0		; get _Attrs
+J71550: MOVB	K25521, R0		; get _Attrs2
 	SUB	#000004, R0
 	MOV	R0, J72022		; set WidthFl
 	CALL	J71244
@@ -993,9 +993,9 @@ J74324: CALL	J74410
 	CALL	K25244			; EXX
 J74340: NOP
 	SOB	R5, J74340
-	MOVB	#000012, K25521		; set _Attrs
+	MOVB	#000012, K25521		; set _Attrs2
 	CALL	K25244			; EXX
-	CALL	K13110			; JCursHide
+	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	J74410
 	CALL	K25244			; EXX
 	MOV	R3, -(SP)
@@ -1017,7 +1017,7 @@ J74430: MOV	(SP)+, R3
 J74434: JMP	(R3)
 ;
 ; Subroutine CharCursor
-J74436: MOVB	#000377, K17523
+J74436: MOVB	#000377, K17523		; set _Attrs1
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
 	MOV	J77142, R0		; get CurChar
@@ -1149,9 +1149,9 @@ J75150: CLR	R4
 	MOV	R4, -(SP)
 	MOV	#000010, R1
 	MOV	#000010, R2
-	MOVB	#000377, K25521		; set _Attrs
+	MOVB	#000377, K25521		; set _Attrs2
 	CALL	K13760			; PixClear
-	MOVB	#000377, K17523
+	MOVB	#000377, K17523		; set _Attrs1
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	MOV	(SP)+, R2
@@ -1187,9 +1187,9 @@ J75356: MOV	#000210, R4
 	CLR	R3
 	MOV	#000074, R2
 	MOV	#000500, R1
-	MOVB	#000377, K25521		; set _Attrs
+	MOVB	#000377, K25521		; set _Attrs2
 	CALL	K13760			; PixClear
-	MOVB	#000377, K17523
+	MOVB	#000377, K17523		; set _Attrs1
 	MOV	#K01402, R2		; Font2
 	MOV	#000212, R4
 	MOV	#000005, R5
@@ -1217,7 +1217,7 @@ J75502: CLR	K56110
 ;
 ; FNTED_INIT:
 J75512: MOV	SP, K24452
-	MOVB	#000377, K17523
+	MOVB	#000377, K17523		; set _Attrs1
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
 	MOV	#000050, R4
@@ -1248,8 +1248,8 @@ J75632: CALL	J75356			; PrintFont
 J75656: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	MOV	#000010, R1		; 8.
-J75672: CLRB	(R5)+
-	SOB	R1, J75672
+J75672: CLRB	(R5)+			; clear byte
+	SOB	R1, J75672		; repeat
 ;
 ; NewCurChar: (6 usages)
 J75676: CALL	J75002			; LensCurChar
@@ -1258,9 +1258,9 @@ J75676: CALL	J75002			; LensCurChar
 ; FontClear:
 J75706: CALL	K63530			; MenuBack
 	MOV	#K01402, R3		; Font2
-	MOV	#002400, R1
-J75722: CLRB	(R3)+
-	SOB	R1, J75722
+	MOV	#002400, R1		; 1280. = 160. * 8.
+J75722: CLRB	(R3)+			; clear byte
+	SOB	R1, J75722		; repeat
 	CLR	J77142			; clear CurChar
 	JMP	J75632			; NewFont
 ;
@@ -1268,15 +1268,15 @@ J75722: CLRB	(R3)+
 J75736: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	MOV	#000010, R1		; 8.
-J75752: COMB	(R5)+
-	SOB	R1, J75752
+J75752: COMB	(R5)+			; invert byte
+	SOB	R1, J75752		; repeat
 	JMP	J75676			; NewCurChar
 ;
 ; FontInvert: Выбрано "Инверт" в меню "Шрифт"
 J75762: MOV	#K01402, R3		; Font2
-	MOV	#002400, R1
-J75772: COMB	(R3)+
-	SOB	R1, J75772
+	MOV	#002400, R1		; 1280. = 160. * 8.
+J75772: COMB	(R3)+			; invert byte
+	SOB	R1, J75772		; repeat
 	JMP	J75632			; NewFont
 ;
 ; CharFlipHrz: Выбрано "Flip hrz." в меню "Символ"
@@ -1328,7 +1328,7 @@ J76146: ROR	R0
 ;
 ; FontFVrt: Выбрано "Flip vrt." в меню "Шрифт"
 J76164: MOV	#K01402, R5		; Font2
-	MOV	#002400, R1
+	MOV	#002400, R1		; 1280. = 160. * 8.
 J76174: MOV	R1, -(SP)
 	CALL	J76140			; CharFVrt2
 	MOV	(SP)+, R1
@@ -1342,52 +1342,52 @@ J76212: MOV	J77142, R0		; get CurChar
 	JMP	J75676			; NewCurChar
 ;
 ; Subroutine CharRot1
-J76232: ADD	#000010, R5
-	MOV	#000010, R1
+J76232: ADD	#000010, R5		; 8.
+	MOV	#000010, R1		; 8.
 J76242: MOV	R1, -(SP)
 	MOVB	-(R5), R0
 	MOV	K30536, R3		; get BuffAddr
 	INC	R3
 	INC	R3
-	MOV	#000010, R1
+	MOV	#000010, R1		; 8.
 J76262: ROLB	R0
 	ROLB	(R3)+
 	SOB	R1, J76262
 	MOV	(SP)+, R1
 	SOB	R1, J76242
-	MOV	#000010, R1
+	MOV	#000010, R1		; 8.
 	MOV	K30536, R3		; get BuffAddr
 	INC	R3
 	INC	R3
-J76310: MOVB	(R3)+, (R5)+
-	SOB	R1, J76310
+J76310: MOVB	(R3)+, (R5)+		; copy byte
+	SOB	R1, J76310		; repeat
 	RETURN
 ;
 ; FontRotate: Выбрано "Поворот 1-4" в меню "Шрифт"
 J76316: MOV	#K01402, R5		; Font2
-	MOV	#000240, R1
+	MOV	#000240, R1		; 160. symbols
 J76326: MOV	R1, -(SP)
 	MOV	R5, -(SP)
 	CALL	J76232			; CharRot1
 	MOV	(SP)+, R5
-	ADD	#000010, R5
+	ADD	#000010, R5		; + 8. to next symbol
 	MOV	(SP)+, R1
-	SOB	R1, J76326
+	SOB	R1, J76326		; repeat
 	JMP	J75632			; NewFont
 ;
 ; CharScrlRight: Выбрано "Сдвиг вправ." в меню "Символ"
 J76354: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
-	MOV	#000010, R1
+	MOV	#000010, R1		; 8.
 J76370: MOVB	(R5), K25524
 	RORB	K25524
 	RORB	(R5)+
-	SOB	R1, J76370
+	SOB	R1, J76370		; repeat
 	JMP	J75676			; NewCurChar
 ;
 ; FontRight: Выбрано "Сдвиг вправ." в меню "Шрифт"
 J76410: MOV	#K01402, R3		; Font2
-	MOV	#002400, R1
+	MOV	#002400, R1		; 1280. = 160. * 8.
 J76420: MOVB	(R3), K25524
 	RORB	K25524
 	RORB	(R3)+
@@ -1401,7 +1401,7 @@ J76440: MOV	J77142, R0		; get CurChar
 	JMP	J75676			; NewCurChar
 ;
 ; Subroutine CharScrlDn1
-J76460: MOV	#000010, R1
+J76460: MOV	#000010, R1		; 8.
 	MOVB	000007(R5), K25520
 J76472: MOVB	000006(R5), 000007(R5)
 	DEC	R5
@@ -1411,12 +1411,12 @@ J76472: MOVB	000006(R5), 000007(R5)
 ;
 ; FontDown: Выбрано "Сдвиг вниз" в меню "Шрифт"
 J76514: MOV	#K01402, R5		; Font2
-	MOV	#000240, R1
+	MOV	#000240, R1		; 160. symbols
 J76524: MOV	R1, -(SP)
 	MOV	R5, -(SP)
 	CALL	J76460			; CharScrlDn1
 	MOV	(SP)+, R5
-	MOV	#000010, R1
+	MOV	#000010, R1		; 8.
 	ADD	R1, R5
 	MOV	(SP)+, R1
 	SOB	R1, J76524
@@ -1425,9 +1425,9 @@ J76524: MOV	R1, -(SP)
 ; FontCopyROM: Выбрано "Копировн. ПЗУ" в меню "Смесь"
 J76554: MOV	<K64624+2>, R3
 	MOV	#K01402, R2		; Font2
-	MOV	#002400, R1
-J76570: MOVB	(R3)+, (R2)+
-	SOB	R1, J76570
+	MOV	#002400, R1		; 1280. = 160. * 8.
+J76570: MOVB	(R3)+, (R2)+		; copy byte
+	SOB	R1, J76570		; repeat
 	CLR	J77142			; clear CurChar
 	JMP	J75632			; NewFont
 ;
