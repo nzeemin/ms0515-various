@@ -1425,7 +1425,7 @@ L75370: MOV	R0, -(SP)
 	MOV	#034000, R0
 	CALL	K25024			; ClearScreen
 	MOV	(SP)+, R0
-	MOV	SP, <K23720+2>
+	MOV	SP, <K23720+2>		; save SP
 	MOV	R0, -(SP)
 	CALL	K37642
 	INC	K40306
@@ -1540,7 +1540,7 @@ L76114: CLR	K25514
 	CALL	K65356			; Send to printer
 	MOV	#000100, R0		; 40h = '@'
 	CALL	K65356			; Send to printer
-	MOV	<K23720+2>, SP
+	MOV	<K23720+2>, SP		; restore SP
 	JMP	K24742			; START2
 ;
 ; Subroutine ??

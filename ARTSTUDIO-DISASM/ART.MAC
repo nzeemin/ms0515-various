@@ -1729,108 +1729,114 @@ K23162: BIC	#177407, R0
 K23200: RETURN
 ;
 ; Save file
-K23202: MOV	SP, #000000		;!!!MUT-ARG!!!
+K23202: MOV	SP, #000000		;!!!MUT-ARG!!! save/load flag = "save"
 	BR	K23214
 ;
 ; Load file
-K23210: CLR	<K23202+2>
-K23214: MOV	SP, <K23720+2>
-	TST	K24452
-	BNE	K23236
+K23210: CLR	<K23202+2>		; set save/load flag = "load"
+; Save or load file
+K23214: MOV	SP, <K23720+2>		; save SP
+	TST	K24452			; check file/font flag
+	BNE	K23236			; font =>
 	CALL	K41726
 	.WORD	073512
 	BR	K23244
 K23236: CALL	K41726
-	.WORD	K23704
-K23244:	TST	<K23202+2>
-	BEQ	K23260
-	CALL	K24336
+	.WORD	023704
+K23244:	TST	<K23202+2>		; check save/load flag
+	BEQ	K23260			; load =>
+	CALL	K24336			; Save the whole screen
 	BR	K23264
 K23260: CALL	K24170			; Update the whole screen
 K23264: EMT	346			; .LOCK
 	MOV	SP, R2
-	SUB	#000012, SP
+	SUB	#000012, SP		; make room for EMT 375 command
 	MOV	#000016, (SP)
 	MOVB	#000001, 000001(SP)
 	MOV	R2, 000002(SP)
 	CLR	000004(SP)
-	TST	<K23202+2>
-	BNE	K23360
+	TST	<K23202+2>		; check save/load flag
+	BNE	K23360			; save =>
 	MOVB	#000002, 000001(SP)
 	MOV	#000040, 000004(SP)
-	TST	K24452
-	BEQ	K23354
+	TST	K24452			; check file/font flag
+	BEQ	K23354			; font =>
 	MOV	#000006, 000004(SP)
 K23354: CLR	000006(SP)
-K23360: MOV	SP, R0
-	EMT	375
-	BLO	K23612
+K23360: MOV	SP, R0			; R0 = EMT 375 block address
+	EMT	375			; execute the command
+	BLO	K23612			; Show error "Файл не найден" / "Диск заполнен"
 	BIC	#000014, @#157700
 	MOV	@#157700, @#177400	; Memory control MS0515
 	CLR	000010(SP)
-	MOV	#000400, 000006(SP)
-	MOV	#040000, 000004(SP)
+	MOV	#000400, 000006(SP)	; read/write 256. words = 512. bytes
+	MOV	#040000, 000004(SP)	; address
 	CLR	000002(SP)
 	MOV	#000016, (SP)
-	MOVB	#000010, 000001(SP)
-	TST	<K23202+2>
-	BNE	K23454
-	MOVB	#000011, 000001(SP)
-K23454: MOV	SP, R0
-	EMT	375
-	BLO	K23632
-	TST	K24452
-	BNE	K23514
-	CMP	000002(SP), #000037
+	MOVB	#000010, 000001(SP)	; write command
+	TST	<K23202+2>		; check save/load flag
+	BNE	K23454			; save =>
+	MOVB	#000011, 000001(SP)	; read command
+K23454: MOV	SP, R0			; R0 = EMT 375 block address
+	EMT	375			; execute the command
+	BLO	K23632			; => Show error "Ошибка чтения" / "Ошибка записи"
+	TST	K24452			; check file/font flag
+	BNE	K23514			; font =>
+	CMP	000002(SP), #000037	; = 31. ? (screen is 32. blocks = 16K bytes)
 	BHIS	K23524
-K23500: INC	000002(SP)
-	ADD	#001000, 000004(SP)
-	BR	K23454
-K23514: CMP	000002(SP), #000005
+K23500: INC	000002(SP)		; next block
+	ADD	#001000, 000004(SP)	; advance address by 512. bytes
+	BR	K23454			; continue read / write
+K23514: CMP	000002(SP), #000005	; = 5. ? (font is 6. blocks = 3K bytes)
 	BLO	K23500
 K23524: BIS	#000014, @#157700
 	MOV	@#157700, @#177400	; Memory control MS0515
-	MOV	#003016, R0
-	EMT	374
-	BLO	K23652
+	MOV	#003016, R0		; close file command
+	EMT	374			; execute close file
+	BLO	K23652			; Show error "Файл не закрыт"
 	EMT	347			; .UNLOCK
-	MOV	<K23720+2>, SP		; сохраняем SP
-	TST	<K23202+2>
-	BEQ	K23574
-	CALL	K24336
+	MOV	<K23720+2>, SP		; restore SP
+	TST	<K23202+2>		; check save/load flag
+	BEQ	K23574			; load =>
+	CALL	K24336			; Save the whole screen
 	CALL	K63530			; MenuBack
-K23574: TST	K24452
-	BNE	K23606
+K23574: TST	K24452			; check file/font flag
+	BNE	K23606			; font =>
 	JMP	K24742			; START2
-K23606: JMP	ART11	; 001132	; Overlay call
+K23606: JMP	FONTED	; 001132	; Overlay call
 ;
+; Show error "Файл не найден" / "Диск заполнен"
 K23612: MOV	#K24044, R3		; "Файл не найден"
-	TST	<K23202+2>
-	BNE	K23664
+	TST	<K23202+2>		; check save/load flag
+	BNE	K23664			; save =>
 	MOV	#K24066, R3		; "Диск заполнен"
 	BR	K23664
+; Show error "Ошибка чтения" / "Ошибка записи"
 K23632: MOV	#K24106, R3		; "Ошибка чтения"
-	TST	<K23202+2>
-	BNE	K23664
+	TST	<K23202+2>		; check save/load flag
+	BNE	K23664			; save =>
 	MOV	#K24126, R3		; "Ошибка записи"
 	BR	K23664
+; Show error "Файл не закрыт"
 K23652: MOV	#K24146, R3		; "Файл не закрыт"
 	BR	K23664
 ;
 K23660: MOV	#K24024, R3		; "Ошибка имени"
+;
+; Show error message on the screen
 K23664: BIS	#000014, @#157700
 	MOV	@#157700, @#177400	; Memory control MS0515
-	MOV	#K41150, R2		; Адрес буфера
-K23704:	MOV	(R3)+, R5		; берём длину
-K23706: MOVB	(R3)+, (R2)+		; копируем в буфер
-	SOB	R5, K23706
-	MOV	#177777, (R2)
+	MOV	#K41150, R2		; error message buffer addr
+K23704:	MOV	(R3)+, R5		; get string length
+K23706: MOVB	(R3)+, (R2)+		; copy symbol to buffer
+	SOB	R5, K23706		; repeat
+	MOV	#177777, (R2)		; "end of menu" marker
 	EMT	347			; .UNLOCK
 K23720::MOV	#000000, SP		;!!!MUT-ARG!!!
 	CLR	K41504
-	CALL	K23760
+	CALL	K23760			; Show error message box
 	MOV	#000005, R1
-; Задержка
+; Delay
 K23740: MOV	#177777, R0
 K23744: NOP
 	NOP
@@ -1838,7 +1844,7 @@ K23744: NOP
 	SOB	R1, K23740
 	JMP	K63530			; MenuBack
 ;
-; Subroutine ??
+; Subroutine: Show error message box
 K23760: MOV	#K41116, R5		; error message box addr
 	MOV	K65276, 000012(R5)
 	MOV	R5, K65276		; set Menu_Addr
@@ -1867,8 +1873,8 @@ K24170: MOV	R3, -(SP)
 	MOV	R5, -(SP)
 	MOV	#120000, R5		; copy from
 	MOV	#040000, R3		; copy to: screen
-	TST	K24452
-	BNE	K24362
+	TST	K24452			; check file/font flag
+	BNE	K24362			; font =>
 K24212: MOV	#001750, R0		; 1000.
 	MTPS	#000340			; disable interrupts
 	BIS	#000340, K25474
@@ -1893,13 +1899,13 @@ K24330:	MOV	(SP)+, R5
 	MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine ??
+; Subroutine: Save the whole screen ??
 K24336: MOV	R3, -(SP)
 	MOV	R5, -(SP)
-	MOV	#120000, R3
-	MOV	#040000, R5
-	TST	K24452
-	BNE	K24444
+	MOV	#120000, R3		; copy to
+	MOV	#040000, R5		; copy from: screen
+	TST	K24452			; check file/font flag
+	BNE	K24444			; font =>
 	BR	K24212
 K24362: MOV	#K01402, R5		; Font2
 	MOV	R3, -(SP)
@@ -1918,7 +1924,7 @@ K24422: MOV	(R5)+, (R3)+
 K24444: MOV	#K01402, R3		; Font2
 	BR	K24402
 ;
-K24452::.WORD	0
+K24452::.WORD	0			; Flag for file operations: 0 = file, not 0 = font
 
 ;------------------------------------------------------------------------------
 
@@ -2102,6 +2108,7 @@ K25516::.WORD	0
 K25520::.WORD	0
 K25521 == K25520 + 1	; _Attrs2
 K25522::.WORD	0
+K25523 == K25522 + 1
 K25524::.WORD	0
 K25525 = K25524 + 1
 ;
@@ -2747,7 +2754,8 @@ K31420: .WORD	000140,000000,000120,000120
 	.WORD	000000
 	.WORD	177777
 
-K31666: .ASCII	/набрызг: /<000>
+K31666: .ASCII	/набрызг: /
+	.EVEN
 ;
 ; PaintSpray: Выбран пункт "Набрызг" в выпадающем меню "Кисти"
 K31700: MOV	#177777, K33022		; put "end of menu" there
@@ -2799,7 +2807,8 @@ K31774: MOV	R5, -(SP)
 	SOB	R5, K31774
 	RETURN
 
-K32114: .ASCIZ	/карандаш:/
+K32114: .ASCII	/карандаш:/
+	.EVEN
 ;
 ; PaintPen: Выбран пункт "Карандаш" в выпадающем меню "Кисти"
 K32126: MOV	#000013, K33022
@@ -2859,7 +2868,8 @@ K32344: MOV	#006042, R2
 	MOV	#000043, R3
 	JMP	K32220
 
-K32400: .ASCII	/кисть:   /<000>
+K32400: .ASCII	/кисть:   /
+	.EVEN
 ;
 ; PaintBrush: Выбран пункт "Кисть" в выпадающем меню "Кисти"
 K32412: MOV	#000013, K33022
@@ -3126,7 +3136,7 @@ K34316: .BYTE	000,001,004,011,020,031,044,061,100,121,144,171,220,000
 
 ; Subroutine ??
 K34334: MOV	K34420, R3
-	MOVB	K34420, 025523
+	MOVB	K34420, K25523
 	MOVB	#000051, K25522
 	ADD	K25522, R3
 	MOV	R3, K34420
@@ -3678,7 +3688,7 @@ K40304::.WORD	177777			; Флаг "Перевод строки"
 K40306::.WORD	000002
 ;
 ; FILE: Выпадающее меню "Файл" в главном меню
-K40310: CLR	K24452
+K40310: CLR	K24452			; set "file" flag
 	CALL	K54052
 	CALL	K26476
 	CLR	K41504
@@ -3806,6 +3816,7 @@ K41076: .WORD	000010,000160,000360,000030
 	.WORD	034740
 	.WORD	000000,000000,177777
 ;
+; Error message box
 K41116: .WORD	000210,000200,000170,000030
 	.WORD	013740
 	.WORD	000000,000000,000000
@@ -3839,29 +3850,29 @@ K41316: CMPB	R0, #000002		; 002 = Erase
 	BEQ	K41330
 	JMP	K41464
 ; Erase file
-K41330: MOV	SP, <K23720+2>
-	TST	K24452
-	BNE	K41352
+K41330: MOV	SP, <K23720+2>		; save SP
+	TST	K24452			; check file/font flag
+	BNE	K41352			; font =>
 	CALL	K41726
 	.WORD	073512
 	BR	K41360
 K41352: CALL	K41726
-	.WORD	K23704
+	.WORD	023704
 K41360: EMT	346			; .LOCK
 	MOV	SP, R2
-	SUB	#000006, SP
+	SUB	#000006, SP		; make room for EMT 375 command
 	CLR	(SP)
 	MOV	R2, 000002(SP)
 	CLR	000004(SP)
 	MOV	SP, R0
-	EMT	000375
+	EMT	000375			; execute the command
 	EMT	000347			; .UNLOCK
-	MOV	<K23720+2>, SP
+	MOV	<K23720+2>, SP		; restore SP
 	CALL	K63530			; MenuBack
-	TST	K24452
-	BNE	K41432
+	TST	K24452			; check file/font flag
+	BNE	K41432			; font =>
 	JMP	K24742			; START2
-K41432: JMP	ART11	; 001132	; Overlay call
+K41432: JMP	FONTED	; 001132	; Overlay call
 ;
 K41436: .ASCII	/Имя файла ?/<000>
 ;
@@ -3902,19 +3913,19 @@ K41530::.WORD	000020,000000,000160,000065
 	.ASCII	/Удалить файл/<000><000>		; "Erase file ... "
 	.WORD	177777
 ;
-; Subroutine ??
+; Subroutine: Enter ??
 K41726: MOV	#K41510, R0		; addr of 16. spaces string
-	MOV	(SP), R2
+	MOV	(SP), R2		; get return addr
 	SUB	#000010, SP
 	MOV	R2, (SP)
 	MOV	SP, R2
 	TST	(R2)+
 	MOV	R1, -(SP)
 	MOV	R4, -(SP)
-	CMPB	(R0), #000056
+	CMPB	(R0), #000056		; '.'
 	BNE	K41764
-	JMP	K23660
-K41764: CALL	K42130
+	JMP	K23660			; Show "Ошибка имени" error message
+K41764: CALL	K42130			; Enter 3 chars -> R4
 	TST	R5
 	BLE	K42002
 	CMPB	(R0), #000072
@@ -3923,9 +3934,9 @@ K42002: MOV	#K15270, (R2)+
 	BR	K42020
 K42010: MOV	R4, (R2)+
 	CMPB	(R0)+, -(R5)
-	CALL	K42130
+	CALL	K42130			; Enter 3 chars -> R4
 K42020: MOV	R4, (R2)+
-	CALL	K42130
+	CALL	K42130			; Enter 3 chars -> R4
 	MOV	R4, (R2)+
 	TST	R5
 	BLE	K42042
@@ -3934,33 +3945,34 @@ K42020: MOV	R4, (R2)+
 K42042: MOV	@000004(SP), R4
 	BR	K42056
 K42050: CMPB	(R0)+, -(R5)
-	CALL	K42130
+	CALL	K42130			; Enter 3 chars -> R4
 K42056: MOV	R4, (R2)
 	TST	R5
-	BGT	K42322
+	BGT	K42322			; Show "Ошибка имени" error message
 	TST	-(R2)
 	TST	-(R2)
 	BNE	K42116
 	MOV	#000006, R5		; 6. chars for name
 	MOV	#K42326, R0		; "NONAME"
-	CALL	K42130
+	CALL	K42130			; Enter 3 chars -> R4
 	MOV	R4, (R2)+
-	CALL	K42130
+	CALL	K42130			; Enter 3 chars -> R4
 	MOV	R4, (R2)
 K42116: MOV	(SP)+, R4
 	MOV	(SP)+, R1
-	ADD	#000002, (SP)
+	ADD	#000002, (SP)		; shift return addr one word later
 	RETURN
 ;
-; Subroutine ??
+; Subroutine: Enter 3 chars and pack into 3-char RAD50 word R4
 ; R0 = buffer address
+; Result: R4 = 3-char RAD50 word
 K42130: CLR	R4
-	CALL	K42150
-	CALL	K42150
-	CALL	K42150
+	CALL	K42150			; Enter one char
+	CALL	K42150			; Enter one char
+	CALL	K42150			; Enter one char
 	RETURN
 ;
-; Subroutine ??
+; Subroutine: Enter one char in 3-char RAD50 word R4
 K42150: CLR	R1
 	TST	R5
 	BLE	K42242
@@ -3970,15 +3982,15 @@ K42150: CLR	R1
 	CMPB	(R0)+, -(R5)
 	TST	(SP)+
 	BR	K42150
-K42174: CMPB	(SP), #000101
+K42174: CMPB	(SP), #000101		; 'A'
 	BLO	K42264
-	CMPB	(SP), #000132
+	CMPB	(SP), #000132		; 'Z'
 	BLOS	K42230
-	CMPB	(SP), #000141
-	BLO	K42322
-	CMPB	(SP), #000172
-	BHI	K42322
-	SUB	#000040, (SP)
+	CMPB	(SP), #000141		; 'a'
+	BLO	K42322			; Show "Ошибка имени" error message
+	CMPB	(SP), #000172		; 'z'
+	BHI	K42322			; Show "Ошибка имени" error message
+	SUB	#000040, (SP)		; lower case to upper case
 K42230: SUB	#000100, (SP)
 K42234: BISB	(SP), R1
 	CMPB	(R0)+, -(R5)
@@ -3992,17 +4004,17 @@ K42242: ASL	R4
 	ADD	(SP)+, R4
 	ADD	R1, R4
 	RETURN
-K42264: CMPB	(SP), #000060
+K42264: CMPB	(SP), #000060		; '0'
 	BLO	K42306
-	CMPB	(SP), #000071
+	CMPB	(SP), #000071		; '9'
 	BHI	K42314
 	SUB	#000022, (SP)
 	BR	K42234
-K42306: CMPB	(SP), #000056
+K42306: CMPB	(SP), #000056		; '.'
 	BR	K42320
-K42314: CMPB	(SP), #000072
+K42314: CMPB	(SP), #000072		; ':'
 K42320: BEQ	K42240
-K42322: JMP	K23660
+K42322: JMP	K23660			; Show "Ошибка имени" error message
 ;
 K42326: .ASCII	/NONAME/
 ;
