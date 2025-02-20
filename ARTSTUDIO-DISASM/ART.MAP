@@ -1,4 +1,4 @@
-RT-11 LINK  V05.45 	Load Map 	Tuesday 18-Feb-2025 04:14  Page 1
+RT-11 LINK  V05.45 	Load Map 	Thursday 20-Feb-2025 23:33  Page 1
 ART   .SAV   	Title:	ART   	Ident:	      	
 
 Section  Addr	Size	Global	Value	Global	Value	Global	Value
@@ -58,13 +58,13 @@ Section  Addr	Size	Global	Value	Global	Value	Global	Value
 			K63554	063554	K63646	063646	K64624	064624	
 			K65276	065276	K65356	065356	
  Segment size = 065632 = 13773.  words
-RT-11 LINK  V05.45 	Load Map 	Tuesday 18-Feb-2025 04:14  Page 2
+RT-11 LINK  V05.45 	Load Map 	Thursday 20-Feb-2025 23:33  Page 2
 ART   .SAV   	Title:	ART   	Ident:	      	
 
 
 Overlay region	000001	Segment 000001
  	 065634	011310 = 2404.   words  (RW,I,LCL,REL,CON)
-			ART10 @	065634	FONTED@	072076	
+			TEXTMN@	065634	FONTED@	072076	
  Segment size = 011310 = 2404.   words
 
 Overlay region	000001	Segment 000002

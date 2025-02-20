@@ -1409,7 +1409,7 @@ K21216: TST	K21250			; check DefPixMode
 K21236: BISB	K13107, (R2)
 K21242: RETURN
 ;
-K21244: .WORD	0			; ??
+K21244: .WORD	0			; MergeFl: флаг "Сцепка" / "Merge"
 K21246: .WORD	0			; _Flash
 K21250: .WORD	0			; DefPixMode
 K21252: .WORD	0			; DefInvFl
@@ -1482,7 +1482,7 @@ K21542: MOVB	K25520, R0
 K21560: MOVB	K25520, R0
 K21564: BIC	#177760, R0		; bits 3..0
 	MOV	R3, -(SP)
-	MOV	#021700, R3
+	MOV	#K21700, R3
 	ADD	R0, R3
 	MOVB	(R3), R0
 	MOV	(SP)+, R3
@@ -1808,18 +1808,18 @@ K23606: JMP	FONTED	; 001132	; Overlay call
 ; Show error "Файл не найден" / "Диск заполнен"
 K23612: MOV	#K24044, R3		; "Файл не найден"
 	TST	<K23202+2>		; check save/load flag
-	BNE	K23664			; save =>
+	BNE	K23664			; save => show error
 	MOV	#K24066, R3		; "Диск заполнен"
-	BR	K23664
+	BR	K23664			; show error
 ; Show error "Ошибка чтения" / "Ошибка записи"
 K23632: MOV	#K24106, R3		; "Ошибка чтения"
 	TST	<K23202+2>		; check save/load flag
-	BNE	K23664			; save =>
+	BNE	K23664			; save => show error
 	MOV	#K24126, R3		; "Ошибка записи"
-	BR	K23664
+	BR	K23664			; show error
 ; Show error "Файл не закрыт"
 K23652: MOV	#K24146, R3		; "Файл не закрыт"
-	BR	K23664
+	BR	K23664			; show error
 ;
 K23660: MOV	#K24024, R3		; "Ошибка имени"
 ;
@@ -2046,7 +2046,7 @@ K25242: RTI
 ;
 ; Subroutine EXX ?? (17 usages)
 K25244::MOV	R5, -(SP)
-	MOV	#025440, R5
+	MOV	#K25440, R5
 	TST	(R5)
 	BNE	K25314
 	MOV	SP, (R5)+
@@ -2079,7 +2079,7 @@ K25314: ADD	#000024, R5
 ; Subroutine ??
 K25354::MFPS	-(SP)
 	MOV	R4, -(SP)
-	MOV	#025470, R4
+	MOV	#K25470, R4
 	TST	(R4)
 	BNE	K25414
 	MOV	SP, (R4)+
@@ -2098,7 +2098,8 @@ K25414: CLR	(R4)
 	MOV	-(R4), R0
 	BR	K25406
 ;
-K25440: .BLKW	14.	; Буфер для EXX см. K25244
+K25440: .BLKW	12.	; Буфер для EXX см. K25244
+K25470: .BLKW	2.
 K25474::.BLKW	2.
 K25500::.BLKW	3.
 K25506::.WORD	0	; Значение для регистра диспетчера памяти 177400
@@ -2275,7 +2276,7 @@ K26446: CALL	K15670			; _HrzLine
 ;
 ; UNDO: Выпадающее меню "Буфер" в главном меню
 K26460: CLR	R0
-	MOVB	R0, K56110		; set WindDefFl
+	MOVB	R0, K56110		; clear WindDefFl
 	MOVB	R0, K56114
 	JMP	K26726			; Screen1to0
 ;
@@ -2561,7 +2562,7 @@ K30130: .ASCII	/Печать/<000><000>
 	.WORD	000132,000013,000074,000015, K52226	; MAGNIFY_MENU
 	.BYTE	000,120
 	.ASCII	/Увелич./<000>
-	.WORD	000225,000013,000054,000015, ART10	; TextMenu
+	.WORD	000225,000013,000054,000015, TEXTMN	; TextMenu
 	.BYTE	000,130
 	.ASCII	/Текст/<000>
 	.WORD	000300,000013,000070,000015, K51544	; SHAPES_MENU
@@ -3362,9 +3363,9 @@ K35422: INC	R3
 ; MISC_INIT: Подготовка меню "Смесь"
 K35464: TST	K56110			; check WindDefFl
 	BNE	K35502
-	BISB	#000002, 036020		; set bit1
+	BISB	#000002, K36020		; set bit1
 	RETURN
-K35502: BICB	#000002, 036020		; reset bit1
+K35502: BICB	#000002, K36020		; reset bit1
 	RETURN
 
 ; MISC_MENU: Выпадающее меню "Смесь" ("Miscellaneous")
@@ -3394,7 +3395,7 @@ K35512:	.WORD	000200,000000,000160,000150
 	.BYTE	200,217
 	.ASCII	/Снять сетку/<000>
 	.WORD	000000,000115,000160,000015, K35044	; ChangeColor
-	.BYTE	202,217
+K36020:	.BYTE	202,217
 	.ASCII	/Продолжить цвет/<000>
 	.WORD	000000,000131,000160,000015, K36114	; VERS_MENU
 	.BYTE	200,201
@@ -3431,31 +3432,31 @@ K36254: .WORD	000010,000000,000170,000270
 	.BYTE	200,210
 	.WORD	000000
 	.WORD	000000,000024,000170,000014, ART38
-	.BYTE	202,217
+K36346:	.BYTE	202,217
 	.ASCII	/Вывод 1 х 1/<000>
 	.WORD	000000,000037,000170,000014, ART38
-	.BYTE	202,217
+K36376:	.BYTE	202,217
 	.ASCII	/Вывод 2 х 2/<000>
 	.WORD	000000,000052,000170,000014, ART38
-	.BYTE	202,217
+K36426:	.BYTE	202,217
 	.ASCII	/Вывод 3 х 3/<000>
 	.WORD	000000,000065,000170,000014, ART38
-	.BYTE	202,217
+K36456:	.BYTE	202,217
 	.ASCII	/Вывод 4 х 4/<000>
 	.WORD	000000,000100,000170,000014, ART38
-	.BYTE	202,217
+K36506:	.BYTE	202,217
 	.ASCII	/Вывод 5 х 5/<000>
 	.WORD	000000,000113,000170,000014, ART39
-	.BYTE	202,217
+K36536:	.BYTE	202,217
 	.ASCII	/Вывод  полутон./<000>
 	.WORD	000000,000126,000170,000003, 000000
 	.BYTE	200,210
 	.WORD	000000
 	.WORD	000000,000130,000170,000013, K37762
-	.BYTE	202,211
+K36610:	.BYTE	202,211
 	.ASCII	/Одинарная плотн./<000><000>
 	.WORD	000000,000142,000170,000013, K37762
-	.BYTE	202,211
+K36646:	.BYTE	202,211
 	.ASCII	/Двойная плотн./<000><000>
 	.WORD	000000,000154,000170,000003, 000000
 	.BYTE	200,210
@@ -3467,13 +3468,13 @@ K36254: .WORD	000010,000000,000170,000270
 	.BYTE	200,210
 	.WORD	000000
 	.WORD	000000,000172,000170,000013, K40112
-	.BYTE	200,211
+K36762:	.BYTE	200,211
 	.ASCII	/Выравн. слева/<000>
 	.WORD	000000,000204,000170,000013, K40112
-	.BYTE	202,211
+K37014:	.BYTE	202,211
 	.ASCII	/Центр/<000>
 	.WORD	000000,000216,000170,000013, K40112
-	.BYTE	200,211
+K37036:	.BYTE	200,211
 	.ASCII	/Выравн. справа/<000><000>
 	.WORD	000000,000230,000170,000003, 000000
 	.BYTE	200,210
@@ -3495,63 +3496,63 @@ K36254: .WORD	000010,000000,000170,000270
 ; Subroutine ??
 K37210: MOV	#000001, R0
 	CALL	K37642
-	MOV	#036346, R3
+	MOV	#K36346, R3
 	BICB	#000002, (R3)
 	BHIS	K37236
 	BISB	#000002, (R3)
 K37236: MOV	#000002, R0
 	CALL	K37642
-	MOV	#036376, R3
+	MOV	#K36376, R3
 	BICB	#000002, (R3)
 	BHIS	K37264
 	BISB	#000002, (R3)
 K37264: MOV	#000003, R0
 	CALL	K37642
-	MOV	#036426, R3
+	MOV	#K36426, R3
 	BICB	#000002, (R3)
 	BHIS	K37312
 	BISB	#000002, (R3)
 K37312: MOV	#000004, R0
 	CALL	K37642
-	MOV	#036456, R3
+	MOV	#K36456, R3
 	BICB	#000002, (R3)
 	BHIS	K37340
 	BISB	#000002, (R3)
 K37340: MOV	#000005, R0
 	CALL	K37642
-	MOV	#036506, R3
+	MOV	#K36506, R3
 	BICB	#000002, (R3)
 	BHIS	K37366
 	BISB	#000002, (R3)
 K37366: CLR	R0
 	CALL	K37642
-	MOV	#036536, R3
+	MOV	#K36536, R3
 	BICB	#000002, (R3)
 	BHIS	K37412
 	BISB	#000002, (R3)
-K37412: MOV	#036610, R3
+K37412: MOV	#K36610, R3
 	BICB	#000002, (R3)
 	TST	K40276
 	BNE	K37434
 	BISB	#000002, (R3)
-K37434: MOV	#036646, R3
+K37434: MOV	#K36646, R3
 	BICB	#000002, (R3)
 	MOV	K40276, R0
 	DEC	R0
 	BNE	K37460
 	BISB	#000002, (R3)
 K37460: MOV	K40302, R0
-	MOV	#036762, R3
+	MOV	#K36762, R3
 	BICB	#000002, (R3)
 	TST	R0
 	BNE	K37504
 	BISB	#000002, (R3)
-K37504: MOV	#037014, R3
+K37504: MOV	#K37014, R3
 	BICB	#000002, (R3)
 	DEC	R0
 	BNE	K37524
 	BISB	#000002, (R3)
-K37524: MOV	#037036, R3
+K37524: MOV	#K37036, R3
 	BICB	#000002, (R3)
 	DEC	R0
 	BNE	K37544
@@ -4354,17 +4355,17 @@ K44650: MOVB	K25525, K25524
 ;
 ; BRIGHT_INIT:
 K44670: MOV	K45746, R0		; get _Bright
-	MOV	#045154, R3 ;TODO
+	MOV	#K45154, R3
 	BICB	#000002, (R3)
 	TST	R0
 	BNE	K44714
 	BISB	#000002, (R3)
-K44714: MOV	#045204, R3 ;TODO
+K44714: MOV	#K45204, R3
 	BICB	#000002, (R3)
 	DEC	R0
 	BNE	K44734
 	BISB	#000002, (R3)
-K44734: MOV	#045234, R3 ;TODO
+K44734: MOV	#K45234, R3
 	BICB	#000002, (R3)
 	DEC	R0
 	BNE	K44754
@@ -4410,13 +4411,13 @@ K45070: .WORD	000050,000070,000150,000060
 	.BYTE	200,210
 	.WORD	000000
 	.WORD	000000,000006,000150,000015, K44624
-	.BYTE	200,211
+K45154:	.BYTE	200,211
 	.ASCII	/Яркость отк/<000>
 	.WORD	000000,000022,000150,000015, K44624
-	.BYTE	200,211
+K45204:	.BYTE	200,211
 	.ASCII	/Яркость вкл/<000>
 	.WORD	000000,000036,000150,000015, K44624
-	.BYTE	200,211
+K45234:	.BYTE	200,211
 	.ASCII	/Транспорант/<000>
 	.WORD	000000,000052,000150,000006, 000000
 	.BYTE	200,210
@@ -4435,17 +4436,17 @@ K45316: MOVB	K25525, K25524
 ;
 ; FLASH_INIT:
 K45336: MOV	K21246, R0		; get _Flash
-	MOV	#045622, R3
+	MOV	#K45622, R3
 	BICB	#000002, (R3)
 	TST	R0
 	BNE	K45362
 	BISB	#000002, (R3)
-K45362: MOV	#045652, R3
+K45362: MOV	#K45652, R3
 	BICB	#000002, (R3)
 	DEC	R0
 	BNE	K45402
 	BISB	#000002, (R3)
-K45402: MOV	#045702, R3
+K45402: MOV	#K45702, R3
 	BICB	#000002, (R3)
 	DEC	R0
 	BNE	K45422
@@ -4491,13 +4492,13 @@ K45536: .WORD	000050,000100,000150,000060
 	.BYTE	200,210
 	.WORD	000000
 	.WORD	000000,000006,000150,000015, K45272
-	.BYTE	200,211
+K45622:	.BYTE	200,211
 	.ASCII	/Мигание отл/<000>
 	.WORD	000000,000022,000150,000015, K45272
-	.BYTE	200,211
+K45652:	.BYTE	200,211
 	.ASCII	/Мигание вкл/<000>
 	.WORD	000000,000036,000150,000015, K45272
-	.BYTE	200,211
+K45702:	.BYTE	200,211
 	.ASCII	/Транспорант/<000>
 	.WORD	000000,000052,000150,000006, 000000
 	.BYTE	200,210
@@ -4783,7 +4784,7 @@ K47344: CALL	K12054			; PutCursor
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
 	BEQ	K47372			; no =>
-	JMP	K61224
+	JMP	K61224			; => MAIN3
 K47372: CALL	K62036			; Process ScanCode into X/Y change
 K47376: NOP
 	CALL	K61706			; cp_ArrFire
@@ -4835,7 +4836,7 @@ K47606: TST	K52172			; check SnapVrtFl
 K47616: BIS	#000007, R4
 	RETURN
 ;
-; Subroutine ??
+; Subroutine ?? (lb2bc)
 K47624: MOV	#000006, R0
 	MOV	#K52176, R3		; ShapesX addr
 K47634: MOV	#177777, (R3)+
@@ -5046,6 +5047,7 @@ K50700: MOV	K52206, R3		; get ShapeEndX
 	BNE	K50732
 	RETURN
 K50732: BR	K50776			; ShapDrawLn
+; ShapesRays1:
 K50734: MOV	K52202, R3		; get ShapeBegX
 	MOV	K52204, R4		; get ShapeBegY
 	COM	R3
@@ -5084,7 +5086,7 @@ K51062: BLO	K51106
 	COM	R3
 	BIC	R3, R4
 	INC	R4
-	BNE	K51154
+	BNE	K51154			; => _Circle3
 	RETURN
 K51106: MOV	K52202, R3		; get ShapeBegX
 	MOV	K52204, R4		; get ShapeBegY
@@ -5094,8 +5096,8 @@ K51106: MOV	K52202, R3		; get ShapeBegX
 	BNE	K51144
 	MOV	K52176, K52202		; ShapesX -> ShapeBegX
 	MOV	K52200, K52204		; ShapesY -> ShapeBegY
-	BR	K51154
-K51144: CALL	K51154
+	BR	K51154			; => _Circle3
+K51144: CALL	K51154			; _Circle3
 	JMP	K47624
 ;
 ; Subroutine _Circle3
@@ -5182,19 +5184,19 @@ K51456: RETURN
 K51460:	COM	K52166			; invert ElasticFl
 ; PrtElastFl:
 K51464: CALL	K17144			; PrtFlagXYStack
-	.WORD	K52166,000334,000162
+	.WORD	K52166,000334,000162	; ElasticFl
 ;
 ; SnapHrzSel:
 K51476:	COM	K52170			; invert SnapHrzFl
 ; PrtSnapHrz:
 K51502: CALL	K17144			; PrtFlagXYStack
-	.WORD	K52170,000352,000176
+	.WORD	K52170,000352,000176	; SnapHrzFl
 ;
 ; SnapVrtSel:
 K51514:	COM	K52172			; invert SnapVrtFl
 ; PrtSnapVrt:
 K51520: CALL	K17144			; PrtFlagXYStack
-	.WORD	K52172,000352,000212
+	.WORD	K52172,000352,000212	; SnapVrtFl
 ;
 ; SHAPES_INIT:
 K51532:	CALL	K51464			; PrtElastFl
@@ -5449,7 +5451,7 @@ K53514: NOP
 K53524: CALL	K56222
 	CLR	R0			; cursor 0
 	CALL	K62000			; SetCursAddr
-	CALL	K12054			; PutCursor
+K53536:	CALL	K12054			; PutCursor
 K53542:	CALL	K61754			; PassFire
 K53546: CALL	K45776			; ScanKey: Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
@@ -5476,16 +5478,16 @@ K53646: CALL	K56206
 	JMP	K53126
 K53662: CALL	K61700			; MenuBeep
 	CALL	K63366			; MenuExe
-	TST	R3
-	BEQ	K53542
-	MOV	#025666, R2
+	TST	R3			; do we have menu handler?
+	BEQ	K53542			; no handler =>
+	MOV	#K25666, R2
 	CMP	R2, R3
 	BEQ	K53722
-	MOV	#025526, R2
-	CMP	R2, R3
-	BEQ	K53722
-	JMP	K61224
-K53722: MOV	#053536, R3
+	MOV	#K25526, R2		; SCRN_DN
+	CMP	R2, R3			; handler = SCRN_DN ?
+	BEQ	K53722			; yes =>
+	JMP	K61224			; => MAIN3
+K53722: MOV	#K53536, R3
 	MOV	R3, -(SP)
 	MOV	R2, -(SP)
 	JMP	K13110			; JCursHide: Restore area under cursor
@@ -5619,7 +5621,7 @@ K54470: MOV	R2, -(SP)
 	ADD	#000120, R3		; next line
 	ADD	#000120, R2		; next line
 	SOB	R5, K54470
-	TST	K56112
+	TST	K56112			; check MultyFl
 	BNE	K54532
 	RETURN
 K54532: CALL	K53736
@@ -5808,7 +5810,7 @@ K56062:	.BYTE	202,217
 ;
 K56106::.WORD	0			; ?? (lc3cb)
 K56110::.WORD	0			; WindDefFl
-K56112: .WORD	0			; MultyFl
+K56112: .WORD	0			; MultyFl: флаг "Повтор"
 K56114::.WORD	0			; ?? (lc3cf)
 K56116::.WORD	000034			; WindBegX
 K56120::.WORD	000017			; WindBegY
@@ -6361,21 +6363,23 @@ K61120: CLR	K62412
 K61146: NOP
 K61150: CALL	K12054			; PutCursor
 	CALL	K61754			; PassFire
+; MAIN2:
 K61160: CALL	K45776			; ScanKey: Read input and set ScanCode
 	BIT	#000020, K46222		; selection?
-	BNE	K61224			; yes =>
+	BNE	K61224			; yes => MAIN3
 	CALL	K62036			; Process ScanCode into X/Y change
 K61200: NOP
 	CALL	K61706			; cp_ArrFire
 	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	K12054			; PutCursor
 	CALL	K62414			; MenuCheck
-	BR	K61160
+	BR	K61160			; => MAIN2
+; MAIN3:
 K61224: CALL	K61700			; MenuBeep
 	MOV	K30534, SP		; restore SP: STK_Q -> SP
 	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	K62652			; MenuSel: process click in this menu
-	BR	K61150
+	BR	K61150			; => MAIN1
 ;
 ; EDIT:
 K61246::MOV	R0, K62364
@@ -6383,8 +6387,9 @@ K61246::MOV	R0, K62364
 	MOV	R3, K62370
 	MOV	R2, K62372		; set _Jp_Addr
 	CALL	K61670			; cp_ArrY: cursor in menu?
-	MOV	#K61302, R3
+	MOV	#K61302, R3		; EDIT1
 	BHIS	K61520			; => EDIT7
+; EDIT1:
 K61302: MOV	K62364, R0
 	CALL	K62000			; SetCursAddr
 	CALL	K12054			; PutCursor
@@ -6397,7 +6402,7 @@ K61342: NOP
 	CALL	K61706			; cp_ArrFire
 	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	K61670			; cp_ArrY: cursor in menu?
-	MOV	#K61302, R3
+	MOV	#K61302, R3		; EDIT1
 	BHIS	K61520			; => EDIT7
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
@@ -6406,7 +6411,7 @@ K61342: NOP
 	MOV	K62370, R3
 	BEQ	K61322
 	CALL	(R3)
-	BR	K61322
+	BR	K61322			; => EDIT3
 K61416: TSTB	K62366
 	BNE	K61430
 	CALL	K61700			; MenuBeep
@@ -6453,15 +6458,15 @@ K61604: CALL	K12054			; PutCursor
 	BR	K61540
 K61612: CALL	K61700			; MenuBeep
 	CALL	K63366			; MenuExe
-	TST	R3
-	BEQ	K61534
+	TST	R3			; do we have menu handler?
+	BEQ	K61534			; no handler =>
 	MOV	#K25666, R2		; SCRN_UP
 	CMP	R2, R3
 	BEQ	K61652
 	MOV	#K25526, R2		; SCRN_DN
 	CMP	R2, R3
 	BEQ	K61652
-	JMP	K61224
+	JMP	K61224			; => MAIN3
 K61652: MOV	#K61530, R3		; => EDIT8
 	MOV	R3, -(SP)
 	MOV	R2, -(SP)
@@ -6471,11 +6476,11 @@ K61652: MOV	#K61530, R3		; => EDIT8
 K61666: JMP	(R3)
 ;
 ; Subroutine cp_ArrY: Проверка, находится ли курсор мыши в меню
-K61670::CMP	#000030, K62376		; check Mouse Y
+K61670::CMP	#000030, K62376		; check Mouse Y agains 24.
 	RETURN
 ;
 ; Subroutine MenuBeep
-K61700::MOV	#000007, R0
+K61700::MOV	#000007, R0		; supposed to be some sound, but not implemented
 	RETURN
 ;
 ; Subroutine cp_ArrFire
@@ -6487,7 +6492,7 @@ K61706::MOV	K62400, R5		; get CurCursAddr
 	MOVB	(R5), R1
 	SUB	(R1), R0
 	BLO	K61742
-	CMPB	R0, #000030
+	CMPB	R0, #000030		; 24.
 	BLO	K61742
 	RETURN
 K61742: MOV	#000003, R1
@@ -6512,8 +6517,8 @@ K62000::MOV	R0, K62362		; save cursor number
 	ADD	#K06122, R0		; + TabCursor
 	MOV	(R0), R3		; get cursor addr from the table
 	MOV	R3, K62400		; set CurCursAddr
-	MOV	#000005, K62406
-	MOV	#000017, K62410
+	MOV	#000005, K62406		; 5.
+	MOV	#000017, K62410		; 15.
 	BR	K61762
 ;
 ; Subroutine: Process ScanCode into X/Y change ?? (10 usages)
@@ -6539,7 +6544,7 @@ K62122: MOV	K62402, R1		; get mouse movement
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	R3, -(SP)
-	MOV	R4, -(SP)
+	MOV	R4, -(SP)		; save Mouse Y
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000002, R0		; left?
 	BEQ	K62160			; no =>
@@ -6560,12 +6565,12 @@ K62216: BIT	#000200, R0		; ??
 K62234: MOV	R3, K62374		; set Mouse X
 	MOV	R4, K62376		; set Mouse Y
 	MOV	SP, K62304
-	CMP	(SP)+, R4
-	BNE	K62264
+	CMP	(SP)+, R4		; did Mouse Y change?
+	BNE	K62264			; yes =>
 	CLR	K62304
 	CALL	K61762
-K62264: CMP	(SP)+, R3
-	BNE	K62276
+K62264: CMP	(SP)+, R3		; did Mouse X change?
+	BNE	K62276			; yes =>
 	CALL	K61762
 	RETURN
 K62276: MOV	SP, K62304
@@ -6599,7 +6604,7 @@ K62344: ADD	R1, R4
 	MOV	#000307, R4		; 199.
 K62360: RETURN
 ;
-K62362: .WORD	0			; cursor number
+K62362: .WORD	0			; CurCursN: cursor number
 K62364: .WORD	000007			; ??
 K62366: .WORD	000377			; ??
 K62370: .WORD	0			; ??
@@ -6616,7 +6621,7 @@ K62412: .WORD	0			; ?? (ldb80)
 ; Subroutine MenuCheck
 K62414::MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), K65300		; set Menu_Xb
-	MOV	000002(R5), K65302
+	MOV	000002(R5), K65302	; set Menu_Yb
 	ADD	#000016, R5		; +14. to first menu item
 K62436:	CMPB	(R5), #000377		; end of menu?
 	BNE	K62446			; no => continue
@@ -6624,7 +6629,7 @@ K62436:	CMPB	(R5), #000377		; end of menu?
 K62446: MOV	(R5), R3		; get menu item X
 	MOV	000002(R5), R4		; get menu item Y
 	ADD	K65300, R3		; + Menu_Xb
-	ADD	K65302, R4
+	ADD	K65302, R4		; + Menu_Yb
 	MOV	000004(R5), R1		; get menu item Width
 	MOV	000006(R5), R2		; get menu item Height
 	CALL	K63554			; MenuRange
@@ -6669,7 +6674,7 @@ K62652::MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), R3		; get menu X
 	MOV	000002(R5), R4		; get menu Y
 	MOV	R3, K65300		; set Menu_Xb
-	MOV	R4, K65302
+	MOV	R4, K65302		; set Menu_Yb
 	MOV	000004(R5), R1		; get menu Width
 	MOV	000006(R5), R2		; get menu Height
 	CALL	K63554			; MenuRange
@@ -6690,7 +6695,7 @@ K62762: BITB	#000002, 000012(R5)
 	MOV	(R5), R3		; get menu item X
 	MOV	000002(R5), R4		; get menu item Y
 	ADD	K65300, R3		; + Menu_Xb
-	ADD	K65302, R4
+	ADD	K65302, R4		; + Menu_Yb
 	MOV	000004(R5), R1		; get menu item Width
 	MOV	000006(R5), R2		; get menu item Height
 	CALL	K63554			; MenuRange
@@ -6721,7 +6726,7 @@ K63110: MOV	R0, -(SP)
 	MOV	(SP)+, R3
 	MOV	(SP)+, R2
 	MOV	(SP)+, R1
-	MOV	#004000, R0
+	MOV	#004000, R0		; delay count
 K63142: MOVB	K25525, K25524
 	SOB	R0, K63142
 	MOV	(SP)+, R0
@@ -6772,7 +6777,7 @@ K63366: MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), R3		; get menu X
 	MOV	000002(R5), R4		; get menu Y
 	MOV	R3, K65300		; set Menu_Xb
-	MOV	R4, K65302
+	MOV	R4, K65302		; set Menu_Yb
 	MOV	000004(R5), R1		; get menu Width
 	MOV	000006(R5), R2		; get menu Height
 	CALL	K63554			; MenuRange
@@ -6784,7 +6789,7 @@ K63432:	CMPB	(R5), #000377		; end of menu?
 	MOV	(R5), R3		; get menu item X
 	MOV	000002(R5), R4		; get menu item Y
 	ADD	K65300, R3		; + Menu_Xb
-	ADD	K65302, R4
+	ADD	K65302, R4		; + Menu_Yb
 	MOV	000004(R5), R1		; get menu item Width
 	MOV	000006(R5), R2		; get menu item Height
 	CALL	K63554			; MenuRange
@@ -6868,7 +6873,7 @@ K63646::MOV	R5, K65276		; set Menu_Addr
 	MOV	(R5), R3		; get word (Menu + 0.) = X
 	MOV	000002(R5), R4		; get word (Menu + 2.) = Y
 	MOV	R3, K65300		; set Menu_Xb
-	MOV	R4, K65302
+	MOV	R4, K65302		; set Menu_Yb
 	MOV	000004(R5), R1		; get word (Menu + 4.) = Width
 	MOV	000006(R5), R2		; get word (Menu + 6.) = Height
 	CLR	R0
@@ -6882,10 +6887,10 @@ K63646::MOV	R5, K65276		; set Menu_Addr
 K63734: ADD	#000016, R5		; + 14., now R5 = first menu item
 K63740: CMPB	#000377, (R5)		; byte (MenuItem + 0) = 255. ?
 	BEQ	K64210			; end of menu =>
-	MOV	(R5), R3		; get word (MenuItem + 0)
+	MOV	(R5), R3		; get word (MenuItem + 0) = X
 	ADD	K65300, R3		; + Menu_Xb
-	MOV	000002(R5), R4		; get word (MenuItem + 2)
-	ADD	K65302, R4
+	MOV	000002(R5), R4		; get word (MenuItem + 2) = Y
+	ADD	K65302, R4		; + Menu_Yb
 	MOV	000004(R5), R1		; get word (MenuItem + 4)
 	MOV	000006(R5), R2		; get word (MenuItem + 6)
 	MOV	R4, -(SP)		; save coords
@@ -7092,7 +7097,7 @@ K65050: CMPB	R0, #000027		; 017 = coords
 	CLR	R0
 	BISB	(R5)+, R0
 	ADD	R0, R3
-	MOV	K65302, R4
+	MOV	K65302, R4		; get Menu_Yb
 	CLR	R0
 	BISB	(R5)+, R0
 	ADD	R0, R4
@@ -7229,4 +7234,8 @@ K65502: MTPS	#000340			; disable interrupts
 
 ;103600 = Buffer
 
+;157700	.WORD	??	; Value for Memory control MS0515 177400
+
 ;157706	.WORD	??	; Value for SysRegC MS0515
+
+;157760
