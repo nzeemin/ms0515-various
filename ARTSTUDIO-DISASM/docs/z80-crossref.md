@@ -6,8 +6,15 @@ original ZX Spectrum Z80 disasm reference (`x-spectrum-disasm/0NN-topic.asm`).
 The two disasms were made independently, but earlier work already borrowed Z80 routine
 names for many resolved MS-0515 subroutines (`JCursHide`, `PutCursor`, `MenuSel`, ...),
 and a few stray `; (ld188)`-style comments point straight at Z80 labels. This doc makes
-that mapping explicit and complete at the menu/overlay level, so unresolved subroutines
-can be looked up against the matching Z80 topic file instead of searched for blind.
+that mapping explicit at the menu/overlay level, and records the Z80 breadcrumbs found
+while resolving the rest.
+
+References below are by **label**, not line number — the source has moved around a lot
+as it's been annotated; labels are the stable anchor. Search for the label in the named
+file to find it.
+
+**Status: all subroutines in ART.MAC / ART1.MAC / ART2.MAC are named.** No bare
+`; Subroutine ??` blocks remain in any of the three files.
 
 ## Z80 topic files
 
@@ -28,7 +35,7 @@ can be looked up against the matching Z80 topic file instead of searched for bli
 | `017-menu.asm` | menu engine (open/select/click) |
 | `018-data.asm` | data tables |
 
-## MAIN_MENU dispatch — `ART.MAC:2534` (`K30076`)
+## MAIN_MENU dispatch — `ART.MAC`, `K30076`
 
 Top-level menu table. Every entry below is one branch point into a feature area —
 everything reachable from it maps to the listed Z80 file(s).
@@ -51,19 +58,16 @@ everything reachable from it maps to the listed Z80 file(s).
 | SCRN_DN | `K25526` | 015-main.asm |
 | EXIT | `K25116` | 015-main.asm |
 
-## Submenu items already named
+## Submenu items
 
-Named entries found inside each submenu table (`ART.MAC`). Unnamed/raw-address entries
-are omitted — those are next in line to resolve, using the same Z80 file as their parent.
-
-**PAINT_MENU** — `ART.MAC:2727` (`K31420`) → `011-paint.asm`
+**PAINT_MENU** (`K31420`) → `011-paint.asm`
 - PaintPen → `K32126`
 - PaintSpray → `K31700`
 - PaintBrush → `K32412`
 - PaintEdBrush → `K33204`
 - PaintInverse → `K33770`
 
-**MISC_MENU** — `ART.MAC:3371` (`K35512`) → `008-misc.asm`
+**MISC_MENU** (`K35512`) → `008-misc.asm`
 - ViewScreen → `K34422`
 - ClearScreen → `K34456`
 - BrightGrid1 → `K34476`
@@ -72,29 +76,29 @@ are omitted — those are next in line to resolve, using the same Z80 file as th
 - ChangeColor → `K35044`
 - VERS_MENU (submenu, no further named items) → `K36114`
 
-**ATTRS_MENU** — `ART.MAC:4212` (`K43466`) → `006-attrs.asm`
+**ATTRS_MENU** (`K43466`) → `006-attrs.asm`
 - INK_MENU (submenu) → `K44176`
-- PAPER_MENU (submenu, not yet detailed) → `K44350`
-- BORDER_MENU (submenu, not yet detailed) → `K44522`
-- BRIGHT_MENU (submenu, not yet detailed) → `K45070`
-- FLASH_MENU (submenu, not yet detailed) → `K45536`
+- PAPER_MENU (submenu) → `K44350`
+- BORDER_MENU (submenu) → `K44522`
+- BRIGHT_MENU (submenu) → `K45070`
+- FLASH_MENU (submenu) → `K45536`
 - OverSel → `K43262`
 - InverseSel → `K43302`
 - TranspSel → `K43340`
 - StandSel → `K43372`
 
-**SHAPES_MENU** — `ART.MAC:5206` (`K51544`) → `007-shapes.asm`
+**SHAPES_MENU** (`K51544`) → `007-shapes.asm`
 - ShapSel (7 shape-type entries, all dispatch through one handler) → `K46726`
 - ElasticSel → `K51460`
 - SnapHrzSel → `K51476`
 - SnapVrtSel → `K51514`
 
-**MAGNIFY_MENU** — `ART.MAC:5270` (`K52226`) → `014-magn.asm` (overlay: `ART2.MAC`)
-- MagnifySel (x2/x4/x8) → `MAGSEL` (`ART2.MAC:1002`)
-- MagnGrid → `MAGRID` (`ART2.MAC:1111`)
-- nested LENS_MENU (`K52444`, not yet fully detailed) — multiple `LensSelX` entries → `LENSEL` (`ART2.MAC:919`)
+**MAGNIFY_MENU** (`K52226`) → `014-magn.asm` (overlay: `ART2.MAC`)
+- MagnifySel (x2/x4/x8) → `MAGSEL`
+- MagnGrid → `MAGRID`
+- nested LENS_MENU (`K52444`) — multiple `LensSelX` entries → `LENSEL`
 
-**WIND_MENU** — `ART.MAC:5747` (`K55300`) → `009-windows.asm`
+**WIND_MENU** (`K55300`) → `009-windows.asm`
 - W_Define → `K54114`
 - W_Last → `K54756`
 - W_WholeScr → `K54764`
@@ -104,204 +108,281 @@ are omitted — those are next in line to resolve, using the same Z80 file as th
 - W_Invert → `K54574`
 - W_Merge → `K55032`
 - W_Multiply → `K55050`
-- (remaining table slots are unnamed placeholders)
 
-**FILL_MENU** — `ART.MAC:6306` (`K60524`) → `010-fill.asm` (overlay: `ART2.MAC`)
-- FillSolid → `FILLSD` (`ART2.MAC:19`)
-- FillTexture → `FILLTX` (`ART2.MAC:89`)
-- FillWashTexure → `FILLWT` (`ART2.MAC:97`)
-- TEXED_MENU (submenu, init => `TEXEDI`, not yet detailed) → `K61012`
+**FILL_MENU** (`K60524`) → `010-fill.asm` (overlay: `ART2.MAC`)
+- FillSolid → `FILLSD`
+- FillTexture → `FILLTX`
+- FillWashTexure → `FILLWT`
+- TEXED_MENU (submenu, init => `TEXEDI`) → `K61012`
 
-**FILE** — `ART.MAC:3691` (`K40310`) → `012-file.asm`
-- Code routine, not a `.WORD` table like the others. Opens `FILE_MENU` (referenced near
-  `K41530`, table itself not yet located/read).
+**LENS_MENU** (`K52444`) → `014-magn.asm` (overlay handlers in `ART2.MAC`)
+- x2/x4/x8 zoom entries → `LENSEL` (LensSelX)
+- "Attrs." → `K43466` (jumps out to ATTRS_MENU)
+- Set/Reset/Toggle → `ART33` (EditModeSel)
+- "Menu" → `K52444` itself (refresh/re-open)
+- Home/Left/Right/Up/Down → `LENSHM`/`LENSLT`/`LENSRT`/`LENSUP`/`LENSDN`
 
-## Overlay entry points
+Matches the Z80 `LENS_MENU` table in `014-magn.asm` item-for-item.
 
-### ART1.MAC — Overlay #1 (0x6c00 in ART.SAV, 2404 words)
+**TEXED_MENU** (`K61012`) → `010-fill.asm` (overlay handlers in `ART2.MAC`), init => `TEXEDI`
+- texture-edit-lens click → `TEXEDA` (Z80 `ld365`)
+- "Menu"/back → `TEXEDB` (Z80 `ld3e0`)
 
-Header: text menu, font editor menu, font editor / symbol, font editor / buffer, font editor / font.
+**FILE** (`K40310`) → `012-file.asm`
+- Code routine, not a `.WORD` table like the others. Opens `FILE_MENU` (`K41530`).
 
-| Line | Label | Z80 file |
-|---|---|---|
-| 16 | `TEXTMN::` | 005-text.asm |
-| 707 | `FONTED::` | 016-fonted.asm |
+**FILE_MENU** (`K41530`) → `012-file.asm`, exit => `MAIN_MENU`
+- Save/Load/Erase file → all 3 → `FileOper` (single handler dispatching on which item
+  was picked)
 
-### ART2.MAC — Overlay #2 (2289 words)
+## ATTRS_MENU color-pick submenus — `006-attrs.asm`
 
-Header: fill menu, FillTexture, FillWashTexure, drawing-lens menu, magnifier-lens menu changes.
+**INK_MENU** (`K44176`), init => `K44076` (INK_INIT)
+- swatch-grid entries → `K43120` (ink-color-pick handler, informally commented "выбор
+  цвета чернил" in the source; not yet given a formal `Subroutine` name)
 
-| Line | Label | Z80 file | Notes |
-|---|---|---|---|
-| 15 | `FILLIT::` | 010-fill.asm | FILL_MENU init |
-| 19 | `FILLSD::` | 010-fill.asm | FillSolid |
-| 89 | `FILLTX::` | 010-fill.asm | FillTexture |
-| 97 | `FILLWT::` | 010-fill.asm | FillWashTexure |
-| 180 | `TEXEDA::` | 010-fill.asm | texture edit |
-| 190 | `TEXEDB::` | 010-fill.asm | texture edit |
-| 196 | `TEXEDI::` | 010-fill.asm | TEXED_INIT |
-| 665 | `LENSHM::` | 014-magn.asm | LensHome |
-| 690 | `LENSLT::` | 014-magn.asm | LensLeft |
-| 709 | `LENSRT::` | 014-magn.asm | LensRight |
-| 740 | `LENSUP::` | 014-magn.asm | LensUp |
-| 759 | `LENSDN::` | 014-magn.asm | LensDown |
-| 919 | `LENSEL::` | 014-magn.asm | LensSelX |
-| 973 | `ART33::` | 014-magn.asm | EditModeSel — on/off/toggle in LENS_MENU |
-| 1002 | `MAGSEL::` | 014-magn.asm | MagnifySel — x2/x4/x8 |
-| 1111 | `MAGRID::` | 014-magn.asm | MagnGrid |
-| 1115 | `ART36::` | 014-magn.asm | |
-| 1406 | `ART37::` | 014-magn.asm | |
-| 1411 | `ART38::` | 014-magn.asm | grid step calc for "NxN frame" items |
-| 1420 | `ART39::` | 014-magn.asm | selection-frame picker |
+**PAPER_MENU** (`K44350`), init => `K44314` (PAPER_INIT)
+- swatch-grid entries → `K42756` (paper-color-pick handler, same pattern)
 
-## Known confirmed Z80 label pointers
+**BORDER_MENU** (`K44522`), init => `K44466` (BORDER_INIT)
+- swatch-grid entry → `K42522` (`BordSel` in source comment — border-color-pick handler)
 
-Inline breadcrumbs left in the source pointing at a specific Z80 label — either
-found as-is, or added while resolving a subroutine against its Z80 counterpart:
+**BRIGHT_MENU** (`K45070`), init => `K44670` (BRIGHT_INIT)
+- 3 entries (Off/On/Toggle) all → `K44624` (bright-flag select handler)
 
-- `ART2.MAC:34` — `; (ld188)` → `x-spectrum-disasm/010-fill.asm:14` (`ld188`, coordinate
-  quantization for texture-fill target cell). Target routine still unnamed (`L65714:`).
-- `ART2.MAC:78` `L66110` → `ld1d2` (010-fill.asm:37) — get address of current texture
-  pattern cell. Resolved, named `TextureAddrCur`.
-- `ART2.MAC:284` `L67244` → `ld54e` (010-fill.asm:262) — plot one interpolated pixel run
-  while dragging the fill/texture brush.
-- `ART2.MAC:449` `L70110` / `ART2.MAC:539` `L70336` → `ld652` (010-fill.asm:335), split
-  into forward/reverse direction blocks — rotate-based line/mask stepper.
-- `ART2.MAC:553` `L70544` → `ld6f8` (010-fill.asm:385) — row boundary compute/test.
-- `ART2.MAC:565` `L70602` → `ld728` (010-fill.asm:399) — dispatch to row/column clamp
-  based on distance from saved position.
-- `ART2.MAC:612` `L70752` → `ld768` (010-fill.asm:419) — clamp/step row at screen
-  top/bottom.
-- `ART2.MAC:635` `L71036` → `ld786` (010-fill.asm:430) — clamp/step column at screen
-  left/right.
-- `ART2.MAC:653` `L71110` → `ld79d` (010-fill.asm:438) — store a line segment into the
-  ring buffer, advance/wrap pointer.
-- `ART2.MAC:665` block header (`L66706`-`L71172`) → Z80 block `ld462`-`ld79d`
-  (010-fill.asm:205-445) — whole mouse-driven fill/wash-texture drawing loop.
-
-`ART2.MAC:280` `L67240` looked like it should match Z80 `CheckBreak` (010-fill.asm:259)
-by call position, but the MS-0515 body is just `SEC / RETURN` — a stub, not a real port
-of the Break-key poll. Flagged in the source, not renamed.
-
-## ART1.MAC resolved against 005-text.asm / 016-fonted.asm
-
-All 15 previously-bare `Subroutine ??` blocks in `ART1.MAC` now carry a description and
-a Z80 breadcrumb:
-
-- `J67230`/`J67240`/`J67326` → `la12e`/`la131`/`la15e` — draw text-entry cursor box
-- `J67354` → `la16b` — clamp cursor position to screen
-- `J67426` → `la186` — direct-text-entry keyboard input loop
-- `J70300` → `la2c5` — draw/erase text position marker
-- `J70336` → `la2d9` — stretch symbol bitmap per WidthFl
-- `J70550` → `la336`, `J70604` → `la34a` — sideways-text bit rotation, each direction
-- `J70702` → `la374` — move text X position left, wrap
-- `J71046` → `la3b9` — clamp new-char position with snap flags
-- `J71202` → `la3f8` — draw cursor-row separator line
-- `J71244` → `la40f` — refresh Height/Width menu checkmarks
-- `J72726` → `F_Capt1`/`F_Capt2` (016-fonted.asm) — FontCapture pixel-row collector
-- `J74410` → `ScanFire` (016-fonted.asm) — poll fire key, break char-scroll loop
-- `J74434` → `_jphl_` (016-fonted.asm) — indirect jump through R3
-- `J75242` → `SetCharXY` (016-fonted.asm) — char index to screen X/Y in font grid
-
-## ART.MAC: 61 of 66 bare subroutines resolved
-
-Resolved via a research pass across the whole file (menu engine, window marquee,
-lens/magnify scaling, brush rasterizer, printer dump, file dialog helpers). Only two
-confirmed Z80 label matches this pass — most of ART.MAC turned out to be either
-MS-0515-specific (memory bank switching, hardware screen paging) or generic-enough
-PDP-11 helper code that no confident Z80 counterpart could be identified; those got a
-plain description instead of a forced/weak match:
-
-- `K17530` → `PutAttrs` (006-attrs.asm) — color-swatch grid drawing
-- `K47624` → `lb2bc` (007-shapes.asm) — shape-anchor reset to -1
-- `K54052` → `lbfed` (009-windows.asm) — window-selection cleanup
-
-**Still bare, need a fresh look** (the first research pass mislabeled/skipped these —
-line numbers below are current, i.e. after the above edits):
-
-- `K22352` (~line 1641) — near the x8-magnify attribute dispatch chain (K22004/K22040/K22074/K22130)
-- `K25354` (~line 2120) — called at the very start of many pixel-plot routines, looks
-  like a shared setup/dispatch helper, worth checking against `_HrzLine`/`_VrtLine`
-  entry code in the Z80 source
-- `K26476` (~line 2324, 11 usages) — screen-page address calculator, related to
-  `K30532` (current visible screen page)
-- `K27156` (~line 2414) — bulk block-copy between two fixed screen buffer addresses,
-  called once from startup
-- `K37210` (~line 3552) — loops calling `K37642` six times to refresh PRINT_MENU
-  checkbox states
-
-## Feature areas with no matching Z80 topic file
-
-- `ART2.MAC:1572` `L76150`, `ART2.MAC:1584` `L76200`, `ART2.MAC:1632` `L76414` — screen
-  dump to printer (found while resolving the LENS/magnifier area; not part of it).
-  No corresponding file in `x-spectrum-disasm/` identified — printer support may be
-  MS-0515-specific, or the original wasn't disassembled for this feature. Left with a
-  plain description, no Z80 breadcrumb.
-
-## ATTRS_MENU submenus — `006-attrs.asm`
-
-**INK_MENU** — `ART.MAC:4385` (`K44176`), init => `K44076` (INK_INIT)
-- both selectable swatch-grid entries → `K43120` (unnamed handler, same target both
-  entries — likely a single "pick this ink color" routine keyed off which swatch index
-  was clicked)
-
-**PAPER_MENU** — `ART.MAC:4411` (`K44350`), init => `K44314` (PAPER_INIT)
-- both swatch-grid entries → `K42756` (paper-color-pick handler, same pattern as INK_MENU)
-
-**BORDER_MENU** — `ART.MAC:4437` (`K44522`), init => `K44466` (BORDER_INIT)
-- swatch-grid entry → `K42522` (border-color-pick handler)
-
-**BRIGHT_MENU** — `ART.MAC:4506` (`K45070`), init => `K44670` (BRIGHT_INIT)
-- 3 entries ("Off"/"On"/"Toggle" style, exact Cyrillic labels: `К45154`/`К45204`/`К45234`
-  swatch positions) all → `K44624` (bright-flag select handler)
-
-**FLASH_MENU** — `ART.MAC:4587` (`K45536`), init => `K45336` (FLASH_INIT)
+**FLASH_MENU** (`K45536`), init => `K45336` (FLASH_INIT)
 - same 3-entry pattern as BRIGHT_MENU, all → `K45272` (flash-flag select handler)
 
 INK/PAPER/BORDER/BRIGHT/FLASH all follow the same shape: an `_INIT` routine that calls
-`K17530` (`PutAttrs`, see above) to draw the swatch grid, plus a `_Curs`/select handler
-called from the menu items to apply the pick and redraw the cursor/checkmark.
+`PutAttrs` (`K17530`) to draw the swatch grid, plus a select handler called from the menu
+items to apply the pick and redraw the cursor/checkmark. The select handlers are named
+and breadcrumbed: `InkSel` (`K43120`), `PaperSel` (`K42756`), `BordSel` (`K42522`),
+`BrightSel` (`K44624`), `FlashSel` (`K45272`) — all confirmed identical-name matches in
+`006-attrs.asm`.
 
-## LENS_MENU — `014-magn.asm`, ART.MAC table / ART2.MAC handlers
+## Overlay headers
 
-`ART.MAC:5413` (`K52444`), no exit/init (both `000000`)
-- x2/x4/x8 zoom entries → `LENSEL` (`ART2.MAC`, LensSelX)
-- "Attrs." → `K43466` (ATTRS_MENU, jumps out to color menu)
-- Set/Reset/Toggle → `ART33` (`ART2.MAC`, EditModeSel)
-- "Menu" → `K52444` itself (re-open, i.e. a no-op/refresh entry)
-- Home/Left/Right/Up/Down arrows → `LENSHM`/`LENSLT`/`LENSRT`/`LENSUP`/`LENSDN`
-  (`ART2.MAC`)
+### ART1.MAC — Overlay #1 (0x6c00 in ART.SAV, 2404 words)
 
-Matches the Z80 `LENS_MENU` table in `014-magn.asm:252` item-for-item (x2/x4/x8, Attrs.,
-Set/Reset/Toggle, Menu, Home/Left/Right/Up/Down).
+Header comment: text menu, font editor menu, font editor / symbol, font editor / buffer,
+font editor / font.
 
-## TEXED_MENU — `010-fill.asm`, ART.MAC table / ART2.MAC handlers
+| Entry label | Z80 file |
+|---|---|
+| `TEXTMN` | 005-text.asm |
+| `FONTED` | 016-fonted.asm |
 
-`ART.MAC:6506` (`K61012`), init => `TEXEDI` (TEXED_INIT, `ART2.MAC`)
-- texture-edit-lens click → `TEXEDA` (`ART2.MAC`, Z80 `ld365`)
-- "Menu"/back → `TEXEDB` (`ART2.MAC`, Z80 `ld3e0`)
+### ART2.MAC — Overlay #2 (2289 words)
 
-## FILE_MENU — `012-file.asm`
+Header comment: fill menu, FillTexture, FillWashTexure, drawing-lens menu,
+magnifier-lens menu changes.
 
-`ART.MAC:3999` (`K41530`), exit => `K30076` (MAIN_MENU)
-- Save/Load/Erase file → all 3 → `K41174` (FileOper, single handler dispatching on
-  which item was picked)
+| Entry label | Z80 file | Notes |
+|---|---|---|
+| `FILLIT` | 010-fill.asm | FILL_MENU init |
+| `FILLSD` | 010-fill.asm | FillSolid |
+| `FILLTX` | 010-fill.asm | FillTexture |
+| `FILLWT` | 010-fill.asm | FillWashTexure |
+| `TEXEDA` | 010-fill.asm | texture edit |
+| `TEXEDB` | 010-fill.asm | texture edit |
+| `TEXEDI` | 010-fill.asm | TEXED_INIT |
+| `LENSHM` | 014-magn.asm | LensHome |
+| `LENSLT` | 014-magn.asm | LensLeft |
+| `LENSRT` | 014-magn.asm | LensRight |
+| `LENSUP` | 014-magn.asm | LensUp |
+| `LENSDN` | 014-magn.asm | LensDown |
+| `LENSEL` | 014-magn.asm | LensSelX |
+| `ART33` | 014-magn.asm | EditModeSel — on/off/toggle in LENS_MENU |
+| `MAGSEL` | 014-magn.asm | MagnifySel — x2/x4/x8 |
+| `MAGRID` | 014-magn.asm | MagnGrid |
+| `ART36` | 014-magn.asm | |
+| `ART37` | 014-magn.asm | |
+| `ART38` | 014-magn.asm | grid step calc for "NxN frame" items |
+| `ART39` | 014-magn.asm | selection-frame picker |
+
+## Known confirmed Z80 label pointers
+
+Inline breadcrumbs left in the source (`; (z80_label)`) pointing at a specific Z80
+routine, found while resolving each MS-0515 subroutine:
+
+**ART.MAC**
+- `PutAttrs` (`K17530`) → `PutAttrs` (006-attrs.asm)
+- `ResetShapeAnchor` (`K47624`) → `lb2bc` (007-shapes.asm)
+- `WindSelCleanup` (`K54052`) → `lbfed` (009-windows.asm)
+
+**ART1.MAC** (all resolved against `005-text.asm` / `016-fonted.asm`)
+- `TextCursorDraw` (`J67230`/`J67240`/`J67326`) → `la12e`/`la131`/`la15e`
+- `TextCursorClamp` (`J67354`) → `la16b`
+- `TextEntryKeyLoop` (`J67426`) → `la186`
+- `TextMarkerDraw` (`J70300`) → `la2c5`
+- `SymbolStretch` (`J70336`) → `la2d9`
+- `SymbolRotateFwd`/`SymbolRotateBack` (`J70550`/`J70604`) → `la336`/`la34a`
+- `TextPosStepLeft` (`J70702`) → `la374`
+- `TextPlaceClamp` (`J71046`) → `la3b9`
+- `TextRowSeparator` (`J71202`) → `la3f8`
+- `RefreshSizeChecks` (`J71244`) → `la40f`
+- `FontCaptureRow` (`J72726`) → `F_Capt1`/`F_Capt2` (016-fonted.asm)
+- `ScanFireBreak` (`J74410`) → `ScanFire` (016-fonted.asm)
+- `JumpIndirect` (`J74434`) → `_jphl_` (016-fonted.asm)
+- `CharGridXY` (`J75242`) → `SetCharXY` (016-fonted.asm)
+
+**ART2.MAC** (resolved against `010-fill.asm` / `014-magn.asm`)
+- `ART2.MAC:34` — `; (ld188)` → `ld188` (010-fill.asm), coordinate quantization for
+  texture-fill target cell. Target routine `L65714` still needs a formal name.
+- `TextureAddrCur` (`L66110`) → `ld1d2`
+- `PlotBrushRun` (`L67244`) → `ld54e`
+- `LineStepFwd`/`LineStepRev` (`L70110`/`L70336`) → `ld652`, split into forward/reverse
+  direction blocks
+- `RowBoundTest` (`L70544`) → `ld6f8`
+- `ClampDispatch` (`L70602`) → `ld728`
+- `RowClamp` (`L70752`) → `ld768`
+- `ColClamp` (`L71036`) → `ld786`
+- `SegmentBufferStore` (`L71110`) → `ld79d`
+- block `L66706`-`L71172` → Z80 block `ld462`-`ld79d` — whole mouse-driven
+  fill/wash-texture drawing loop
+- `PutXLens` (`L72634`) → `PutXLens` (014-magn.asm), `PutEditMode` (`L72754`) →
+  `PutEditMode` (014-magn.asm) — identical names, confirmed
+
+**Also confirmed** (identical-name matches, quick to verify): `_VrtLine`/`_HrzLine`
+(`ART.MAC`) → `017-menu.asm`; `GetMasks` (`K60040`) → `009-windows.asm`; `PassFire`
+(`K61754`) → `017-menu.asm`; `CharCursor`/`LensPrvChar`/`LensCurChar`/`CharAddr`/
+`CharFHrz`/`CharFVrt2`/`CharRot1`/`CharScrlDn1` (`ART1.MAC`) → `016-fonted.asm`.
+
+**Brush/paint routines** (`ART.MAC`) → `011-paint.asm`:
+- `BrushCursorPosition` (`K31160`) → `l8d30`
+- `DrawBrushIconGrid` (`K32220`) → `l8ebc`
+- `PutCenteredIcon` (`K32262`) → `l8ed5`
+- `BuildBrushMask` (`K34006`) → `l911c`
+- `BrushMaskAdvance` (`K34234`) → `l9182`
+- `BrushRadiusLookup` (`K34304`) → `l91a2` (indexes the table already breadcrumbed at
+  `K34316` → `l91b4`)
+
+**File dialog** (`ART.MAC`) → `012-file.asm`:
+- `FilenameEdit` (`K40374`) / `FilenamePutChar` (`K40624`) → `InputName`
+- `LensZoomRound` (`L72010`) → `lb7c0`
+- `LensScanFire` (`L72050`) → `lb7da`
+- `LensBarX`/`LensBarY` (`L72076`/`L72222`) → `lb7e6`/`lb818`
+- `LensScale` (`L72344`) → `lb84e`
+- `Mul16` (`L72412`) → `lb86b`
+- `LensBoundsBox` (`L73536`) → `lb9f8`
+- `LensPixelEdit` (`L73622`) → `lbb43`
+- `SetLensZoom` (`L74322`) → `lbc4c`
+- `ZoomRoundDown` (`L74702`) → `lbcd3`
+- `LensInBounds` (`L74740`) → `lbce6`
+- `DivByZoom` (`L75074`) → `lbd12`
+- `MulByZoom` (`L75120`) → `lbd1f`
+
+`CheckBreakStub` (`L67240`) looked like it should match Z80 `CheckBreak` (010-fill.asm)
+by call position, but the MS-0515 body is just `SEC / RETURN` — a stub, not a real port
+of the Break-key poll.
+
+## Feature areas with no matching Z80 topic file
+
+- `PrinterDumpByte`/`PrinterDumpRow`/`PrinterDumpPlot` (`ART2.MAC`, `L76150`/`L76200`/
+  `L76414`) — screen dump to printer. No corresponding file in `x-spectrum-disasm/`
+  identified — printer support may be MS-0515-specific, or the original wasn't
+  disassembled for this feature.
+- `ComputePrintPitch`/`RefreshPrintFlags` and the rest of the PRINT_MENU machinery in
+  `ART.MAC` — same story, no Z80 counterpart.
+
+## Feature parity: Z80-only and MS-0515-only routines
+
+Full-inventory comparison (every `call`/`jp` target across all 14 Z80 topic files vs.
+every `; Subroutine <Name>` in the three MAC files, matched by identical name, `;
+(z80_label)` breadcrumb, or coverage elsewhere in this doc). Z80 local jump-target
+labels (`l8a2b`-style addresses, `_Circle5/6/8`-style continuation labels) are excluded
+— they're not distinct routines, just range-workarounds for an already-matched one.
+
+### Z80 routines with no apparent MS-0515 counterpart
+
+Candidates for "behavior missing from the port" — but a lot of these are plausibly just
+*folded into* an already-ported routine under a different name rather than genuinely
+absent, so confidence is noted per row. Worth checking individually before assuming a
+feature was dropped.
+
+| Z80 routine | Topic file | Likely feature | Confidence |
+|---|---|---|---|
+| `AttrHL0` / `AttrHL1` | 015-main.asm | attribute-address calc paired with `PixAddr0/1` | medium — may be inlined into `PixAddr0Attr` |
+| `PixAddr1` | 015-main.asm | secondary pixel-address variant (companion to `PixAddr0`, which is ported) | medium |
+| `CheckBeep` | 017-menu.asm | menu beep-on-error sound (distinct from the no-op `MenuBeep` stub) | high |
+| `CheckKey` | 017-menu.asm | keyboard poll in menu loop | low — likely folded into `ScanKey`/`ProcessScanCode` |
+| `ChkMsMove` | 017-menu.asm | mouse-movement-changed check | low — likely folded into `ProcessScanCode` |
+| `ClrAttrs` | 015-main.asm | clear attribute plane separately from pixel plane | medium |
+| `Copy0to1` / `Copy1to0` | 015-main.asm | screen-buffer 0↔1 copy | low — MS-0515 likely does this via bank-swap instead of a copy loop (see `Screen1to0`) |
+| `CopyBuff` | 015-main.asm | generic buffer copy helper | low, generic |
+| `CopyLine` | 015-main.asm | line copy | low — likely subsumed by `CopyLine0` |
+| `IFileFnt` / `IFileSrc` | 012-file.asm | font/source-file specific load helpers | medium |
+| `Inkey` | 012-file.asm | raw keyboard read in file dialog | low, generic |
+| `InputName` | 012-file.asm | filename text entry | low — likely renamed to `FilenameEdit`/`FilenamePutChar` |
+| `MousDrive` / `MouseFire` | 017-menu.asm | mouse driver poll / fire-button check | low — likely folded into `ProcessScanCode`/`cp_ArrFire` |
+| `OnPage` | 015-main.asm | screen-page/bank test | medium |
+| `P_LnAttr` / `P_LnClr` | 009-windows.asm | window line attribute/clear helpers | medium |
+| `PassKey` | 012-file.asm | key pass-through in dialog | low, generic |
+| `PrintA` / `PrtFlName` | 012-file.asm | print message / filename to screen | medium |
+
+### MS-0515 routines with no Z80 origin
+
+Genuinely new — mostly hardware/OS differences (bank-switched screen memory vs. ZX's
+flat 6912-byte screen, RT-11's RAD-50 filenames, PDP-11 word-oriented pixel ops) rather
+than new *features* of the program.
+
+| MS-0515 routine | File | Why it's new |
+|---|---|---|
+| `EXX` | ART.MAC | emulates the Z80 `EXX` instruction itself, not a ported subroutine |
+| `PrinterDumpByte`/`PrinterDumpRow`/`PrinterDumpPlot` | ART2.MAC | printer screen-dump, no Z80 topic file for it |
+| `ComputePrintPitch` / `RefreshPrintFlags` | ART.MAC | PRINT_MENU machinery, no Z80 counterpart |
+| `FilenameRad50Entry` | ART.MAC | RT-11 filesystem uses RAD-50 filename packing — no ZX equivalent possible |
+| `CopyScreenToBuffer` / `CopyBufferToScreen` / `CopyAltScreenToPrimary` / `InitScreenBuffers` / `ScreenPageAddr` | ART.MAC | bank-switched screen memory management (multiple physical screen banks, unlike ZX's flat screen) |
+| `RedrawLensWindow` | ART.MAC | memory-paging for lens redraw |
+| `MouseToPageXY` / `ApplyPageOffsetY` | ART.MAC | mouse coordinate → paged-screen-bank translation |
+| `PixPlotReentryGuard` | ART.MAC | reentrancy guard, likely interrupt-driven mouse/redraw specific |
+| `SetPixelAttrRMW` / `PixAddr0Attr` | ART.MAC | attribute-byte read-modify-write — MS-0515's color-attribute cell format differs from ZX's ink/paper/bright/flash byte |
+| `LensAttrHiNibble` / `LensAttrRaw` / `LensAttrShiftPack` / `NormalizeLensAttr` | ART.MAC | lens attribute nibble-packing specific to MS-0515's attribute encoding |
+| `LensX4Decode0`..`LensX4Decode3` | ART.MAC | 4 decode variants for MS-0515-specific attribute layout at x4 lens zoom |
+| `XorBox2Row` / `XorBox4Row` / `FillBox8Row` | ART.MAC | fixed-size pixel-box bit ops tied to PDP-11's word-oriented pixel layout |
+| `ResetMouseAccel` | ART.MAC | mouse acceleration-state reset, mouse driver detail |
+
+**Note:** a follow-up pass (see "Also confirmed" above) closed 22 of these. ~65 remain
+unconfirmed, concentrated in three clusters that resisted a first matching attempt and
+would benefit from a dedicated deeper look rather than more broad sweeps:
+- **Window drag/marquee** (`ART.MAC`, `009-windows.asm`): `WindDragLoop`, `WindConfirmEdit`,
+  `WindDragDelta`, `WindCommitEdit`, `WindBaseReset`, `WindClearEntry`,
+  `WindDrawBaseEdges`, `WindMarqueeErase`, `WindEdgeBase`/`WindEdgeLive`,
+  `WindRowTestBase`/`WindRowTestLive`, `WindDrawHrzEdges`, `WindEdgeClipPlot`,
+  `WindVrtEdgeBase`, `BoxOutlineRedraw`, `BoxToWindow`, `NormalizeRect`
+- **Shape drawing** (`ART.MAC`, `007-shapes.asm`): `ShapExeDispatch`, `ShapTriEdges`,
+  `ShapDrawToEnd` (`ShapDeadSlot` is likely genuine dead code, low priority)
+- **PRINT_MENU checkboxes** (`ART.MAC`): `RedrawPrintQualityFlag`/`PitchFlag`/
+  `OrientFlag`/`FeedFlag` — plausibly no Z80 match at all (print-quality/pitch options
+  may be MS-0515-specific), worth confirming one way or the other rather than leaving
+  ambiguous
+
+Remaining unconfirmed elsewhere: `PixClearRow`, `RestoreBuffRow`, `WindMarqueeVEdge`,
+`DashHrzRun`, `PutImage`, `ImageTrailShift`, `PrtFlagXYInline`, `PixBoxVEdges`,
+`PutTexturePreview`, `CommitTextureRows`, `LensPlotSet`/`LensPlotToggle`/`LensPlotRow`,
+`LensApplyPixel`, `LensX4Decode0`-`3`, `BuildAttrMasks`, `PixAddr0Attr`,
+`ShowFileConfirmBox`, `CloseFileConfirmBox`, `DrawLineSavePos`, `ProcessScanCode`
+(`ART.MAC`); `TextPosStepDown`, `RedrawHeightFlag`/`WidthFlag`, `PrtTriFlag`,
+`RedrawSidewayFlag`/`BoldFlag`/`CapsFlag`/`SnapHrzFlag` (`ART1.MAC`);
+`DrawTextureSelFrame`, `ScanColClamp`, `RedrawLensBars` (`ART2.MAC`).
 
 ## Gaps / not yet detailed
 
-- WIND_MENU table tail past `ART.MAC:5805` not confirmed to reach its `177777` terminator.
-- `K43120`/`K42756`/`K42522`/`K44624`/`K45272` (the swatch/flag pick handlers above) are
-  themselves still unnamed in `ART.MAC` — good next targets since their Z80 counterparts
-  in `006-attrs.asm` should be straightforward to find (ink/paper/border/bright/flash
-  select routines).
+- WIND_MENU's submenu table has some unnamed placeholder slots past the 9 named items
+  above — not yet confirmed whether they're all genuinely unused or just undocumented.
+- ~~Two data words remain genuinely unresolved~~ — resolved: `K32610` is `BrushItemH`,
+  the custom-brush-size dialog's single menu item's Height field (confirmed via struct
+  offset arithmetic against the `MenuOpen` item layout). `K37640` has zero references
+  anywhere in the source — confirmed dead/unused, left uncommented with a note rather
+  than a forced name.
 
 ## How to use this
 
-1. Pick an unresolved `; Subroutine ??` block.
+1. Pick a routine you want to cross-check or improve the description of.
 2. Find which menu branch it falls under (nearest preceding named menu/submenu entry in
    `ART.MAC`, or which `ART1.MAC`/`ART2.MAC` overlay it's in).
-3. Open the matching Z80 file from the table above.
+3. Open the matching Z80 file from the topic table above.
 4. Match by call order / constants / register roles, not just line-for-line — the two
    ISAs and code layouts differ; Z80 is a reference for *behavior*, not a template.
-5. Name and comment the MS-0515 routine, and if there's a direct Z80 label match, leave a
-   `; (Z80Label)` breadcrumb like the existing `ART2.MAC:34` one.
+5. If there's a direct Z80 label match, leave a `; (Z80Label)` breadcrumb like the ones
+   listed above.

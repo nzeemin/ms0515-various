@@ -292,7 +292,7 @@ J67710: MOVB	R0, (R2)+
 	TST	J72064		; check SidewayFl
 	BNE	J67746
 	MOV	#J72050, R3		; SymblBuff addr
-	MOV	#J72040, R2
+	MOV	#J72040, R2		; SymbolBuf address
 	MOV	#000010, R5
 J67740: MOVB	(R3)+, (R2)+
 	SOB	R5, J67740
@@ -304,7 +304,7 @@ J67746: MOV	#J72050, R2		; SymblBuff addr
 	BR	J67772
 J67766: CALL	J70550			; SymbolRotateFwd
 J67772: MOV	J72060, R3		; get TextInputPtr
-	MOV	#J72040, R2
+	MOV	#J72040, R2		; SymbolBuf address
 	CALL	J70336			; SymbolStretch
 	CALL	K42334			; MakeAttrs
 	TST	K17526			; check PixelMode
@@ -387,18 +387,18 @@ J70300: MOV	J72032, R3		; get TextPosX
 ; stretch a symbol's bitmap columns per WidthFl (normal/double/
 ; treble width) while writing it into the buffer at (R3)
 ; (la2d9)
-J70336: MOVB	#000010, R5
+J70336: MOVB	#000010, R5		; 8. bitmap rows to stretch
 ;
-J70342: MOV	R5, -(SP)
-	MOV	R2, -(SP)
+J70342: MOV	R5, -(SP)		; save row counter
+	MOV	R2, -(SP)		; save source column ptr
 	MOV	J72026, R0		; get SymbolCellHeight
+	ASR	R0			; /8 = 1/2/3 for normal/double/treble
 	ASR	R0
 	ASR	R0
-	ASR	R0
-	MOV	R0, -(SP)
-	MOV	#000010, R5
-	MOVB	(R2), R0
-	CMP	J72024, #000010
+	MOV	R0, -(SP)		; save height multiplier
+	MOV	#000010, R5		; 8. bits per source byte
+	MOVB	(R2), R0		; get source byte
+	CMP	J72024, #000010		; normal width (8.)?
 	BNE	J70410
 	MOV	(SP)+, R5
 J70402: MOVB	R0, (R3)+
@@ -452,7 +452,7 @@ J70544: JMP	J70342
 J70550: MOVB	#000010, R5
 J70554: MOV	R5, -(SP)
 	MOVB	(R2)+, R0
-	MOV	#J72040, R3
+	MOV	#J72040, R3		; SymbolBuf address
 	MOV	#000010, R5
 J70570: ROLB	R0
 	RORB	(R3)+
@@ -467,7 +467,7 @@ J70570: ROLB	R0
 J70604: MOV	#000010, R5
 J70610:	MOV	R5, -(SP)
 	MOVB	(R2)+, R0
-	MOV	#J72040, R3
+	MOV	#J72040, R3		; SymbolBuf address
 	MOV	#000010, R5
 J70624: RORB	R0
 	ROLB	(R3)+
@@ -1050,6 +1050,7 @@ J74430: MOV	(SP)+, R3
 J74434: JMP	(R3)
 ;
 ; Subroutine CharCursor
+; (CharCursor in 016-fonted.asm)
 J74436: MOVB	#000377, K17523		; set _Attrs1
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
@@ -1116,6 +1117,7 @@ J74744: NOP
 	JMP	J75132			; PrtNxtChar
 ;
 ; Subroutine LensPrvChar
+; (LensPrvChar in 016-fonted.asm)
 J74752: MOV	#000060, R4
 	MOV	#000040, R3
 	MOV	J77142, R0		; get CurChar
@@ -1125,6 +1127,7 @@ J74752: MOV	#000060, R4
 J75000: BR	J75046
 ;
 ; Subroutine LensCurChar
+; (LensCurChar in 016-fonted.asm)
 J75002: MOV	#000060, R4
 	MOV	#000170, R3
 	MOV	J77142, R0		; get CurChar
@@ -1145,6 +1148,7 @@ J75046: CALL	J75066			; CharAddr
 	JMP	K14060			; PutLens
 ;
 ; Subroutine CharAddr
+; (CharAddr in 016-fonted.asm)
 J75066: MOV	R0, R5
 	ASL	R5
 	ASL	R5
@@ -1322,6 +1326,7 @@ J76002: MOV	J77142, R0		; get CurChar
 	JMP	J75676			; NewCurChar
 ;
 ; Subroutine CharFHrz
+; (CharFHrz in 016-fonted.asm)
 J76022: MOV	#000004, R1
 	MOV	R5, R3
 J76030: MOVB	(R3), R0
@@ -1354,6 +1359,7 @@ J76122: MOV	R1, -(SP)
 	JMP	J75676			; NewCurChar
 ;
 ; Subroutine CharFVrt2
+; (CharFVrt2 in 016-fonted.asm)
 J76140: MOVB	(R5), R0
 	MOV	#000010, R1		; 8.
 J76146: ROR	R0
@@ -1378,6 +1384,7 @@ J76212: MOV	J77142, R0		; get CurChar
 	JMP	J75676			; NewCurChar
 ;
 ; Subroutine CharRot1
+; (CharRot1 in 016-fonted.asm)
 J76232: ADD	#000010, R5		; 8.
 	MOV	#000010, R1		; 8.
 J76242: MOV	R1, -(SP)
@@ -1437,6 +1444,7 @@ J76440: MOV	J77142, R0		; get CurChar
 	JMP	J75676			; NewCurChar
 ;
 ; Subroutine CharScrlDn1
+; (CharScrlDn1 in 016-fonted.asm)
 J76460: MOV	#000010, R1		; 8.
 	MOVB	000007(R5), K25520
 J76472: MOVB	000006(R5), 000007(R5)

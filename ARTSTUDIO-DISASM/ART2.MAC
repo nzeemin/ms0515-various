@@ -7,8 +7,8 @@
 ; Подготовка меню "Заливка"
 ; FillTexture
 ; FillWashTexure
-; Меню "Выбери текстуру"
-; Процедуры меню "Ред. тектуры"
+; Select texture ("Выбери текстуру") menu
+; Edit texture ("Ред. тектуры") menu procedures
 
 ; Overlay call
 ; Подготовка меню FILL_MENU
@@ -75,7 +75,8 @@ L66074: CALL	K63530			; MenuBack
 	CALL	K63530			; MenuBack
 L66104: JMP	@#L66104		;!!!MUT-ARG!!!
 ;
-; Subroutine TextureAddrCur: get address of current texture pattern (TextureAddr + (TextureCur-1)*8)
+; Subroutine TextureAddrCur
+; Get address of current texture pattern: TextureAddr + (TextureCur-1)*8
 ; (ld1d2)
 L66110: MOV	L66704, R5		; get TextureCur
 	DEC	R5
@@ -292,18 +293,18 @@ L67240: SEC
 ; plot one interpolated pixel run while dragging fill/texture brush,
 ; tracking previous position in K12042/K12044 for line interpolation
 ; (ld54e)
-L67244: MOV	R0, L71162
-	MOV	R3, K12042
-	MOV	R4, K12044
-	MOV	R1, L71164
-	MOV	R2, L71166
+L67244: MOV	R0, L71162		; save scan-direction sign
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
+	MOV	R1, L71164		; save brush width
+	MOV	R2, L71166		; save brush height
 	CLR	R2
 ; Entry point
-L67272: MOV	R3, -(SP)
-	MOV	R4, -(SP)
+L67272: MOV	R3, -(SP)		; save X
+	MOV	R4, -(SP)		; save Y
 	CALL	K27752			; PixAddr0
 	CALL	K20352			; Put byte on the screen
-	MOV	R0, L71172
+	MOV	R0, L71172		; remember the plotted byte
 	MOVB	R0, K25520
 	MOVB	#000010, K25521		; set _Attrs2
 	MOV	(SP)+, R4
@@ -392,56 +393,56 @@ L67614: BNE	L67652
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
 L67652: MOV	#177777, L71170
-L67660:	MOVB	K25520, R0
-	BNE	L67756
+L67660:	MOVB	K25520, R0		; get last plotted byte
+	BNE	L67756			; not fully clear => normal path
 	MOVB	K25521, R0		; get _Attrs2
-	CMPB	R0, #000010
+	CMPB	R0, #000010		; solid-fill attr?
 	BNE	L67756
 	MOV	R2, R0
 	DEC	R0
 	BEQ	L67726
 	CALL	L70510			; ScanColClamp
-	MOV	R3, K12042
-	MOV	R4, K12044
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 	MOV	#000001, R2
-L67726: MOV	R3, -(SP)
+L67726: MOV	R3, -(SP)		; save X
 	CALL	K27752			; PixAddr0
 	CALL	K20406			; LensPlotSet
-	MOV	(SP)+, R3
-	SUB	#000010, R1
+	MOV	(SP)+, R3		; restore X
+	SUB	#000010, R1		; consume 8. rows of run length
 	BHIS	L67752
 	CLR	R1
-L67752: MOV	(SP)+, R0
+L67752: MOV	(SP)+, R0		; restore saved processor status
 	BR	L70062
-L67756: MOV	(SP)+, R0
-	MTPS	<K23720+2>
-	BNE	L70024
+L67756: MOV	(SP)+, R0		; restore saved processor status
+	MTPS	<K23720+2>		; restore interrupt mask
+	BNE	L70024			; non-solid fill => step and toggle pixels
 	MOV	R2, R0
 	BEQ	L70004
 	CALL	L70510			; ScanColClamp
 	CALL	L70602			; ClampDispatch
 	CLR	R2
 L70004: MOVB	K25521, R0		; get _Attrs2
-	SUB	R0, R1
+	SUB	R0, R1			; consume remaining run length
 	BHIS	L70016
 	RETURN
 L70016: BNE	L70022
 	RETURN
 L70022: BR	L70062
 L70024: CALL	L70110			; LineStepFwd
-	BNE	L70024
-	MOV	R3, -(SP)
+	BNE	L70024			; repeat until the stepper says done
+	MOV	R3, -(SP)		; save X
 	CALL	K27752			; PixAddr0
 	CALL	K25354			; PixPlotReentryGuard
 	CALL	K20430			; LensPlotToggle
-	MOV	(SP)+, R3
+	MOV	(SP)+, R3		; restore X
 	MOV	R2, R0
 	INC	R0
 	BNE	L70062
 	RETURN
 L70062: CALL	L70544			; RowBoundTest
-	BLO	L70074
-	JMP	L67272
+	BLO	L70074			; still in bounds => next pixel run
+	JMP	L67272			; row wrapped => resume the outer plot loop
 L70074: MOV	R2, R0
 	DEC	R0
 	BNE	L70106
@@ -474,8 +475,8 @@ L70152: DEC	R0
 L70200: ROLB	R0
 	CALL	K25354			; PixPlotReentryGuard
 	CALL	L70510			; ScanColClamp
-	MOV	R3, K12042
-	MOV	R4, K12044
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 	MOV	#000001, R2
 	BR	L70322
 L70230: CALL	K25354			; PixPlotReentryGuard
@@ -525,8 +526,8 @@ L70366: DEC	R0
 L70414: RORB	R0
 	CALL	K25354			; PixPlotReentryGuard
 	CALL	L70510			; ScanColClamp
-	MOV	R3, K12042
-	MOV	R4, K12044
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 	MOV	#000001, R2
 	BR	L70322
 L70444: CALL	K25354			; PixPlotReentryGuard
@@ -570,22 +571,22 @@ L70570: BIS	#000007, R3
 ; compare current position to saved position (K12042/K12044) and
 ; dispatch to the row (L70752) or column (L71036) boundary-clamp routine
 ; (ld728)
-L70602: MOV	R3, -(SP)
-	MOV	R4, -(SP)
+L70602: MOV	R3, -(SP)		; save new X
+	MOV	R4, -(SP)		; save new Y
 	MOV	R1, -(SP)
 	MOV	R2, -(SP)
-	MOV	R3, R1
-	MOV	R4, R2
-	MOV	K12042, R3
-	MOV	K12044, R4
-	TST	L71162
+	MOV	R3, R1			; new X
+	MOV	R4, R2			; new Y
+	MOV	K12042, R3		; get PixXc (previous X)
+	MOV	K12044, R4		; get PixYc (previous Y)
+	TST	L71162			; check scan-direction sign
 	BMI	L70642
-	MOV	R1, R0
+	MOV	R1, R0			; distance = new X - previous X
 	SUB	R3, R0
 	BR	L70646
-L70642: MOV	R3, R0
+L70642: MOV	R3, R0			; distance = previous X - new X
 	SUB	R1, R0
-L70646: BEQ	L70740
+L70646: BEQ	L70740			; no movement =>
 	MOV	(SP)+, R2
 	MOV	(SP)+, R1
 	MOV	R1, -(SP)
@@ -996,6 +997,7 @@ L72506: CALL	L72634			; PutXLens
 	CALL	L71226			; RedrawLensBars
 	MOV	K23120, R0		; LensCurX
 ; Subroutine PutXLens
+; (PutXLens in 014-magn.asm)
 L72634: MOV	#000001, R3
 	MOV	#000003, R4
 	MOV	#000022, R1
@@ -1023,6 +1025,7 @@ L72740: CALL	L72754			; PutEditMode
 	MOV	K53060, R0		; get NewEditMode
 	MOV	R0, K53056		; set CurEditMode
 ; Subroutine PutEditMode
+; (PutEditMode in 014-magn.asm)
 L72754: MOV	#000145, R3
 	MOV	#000003, R4
 	MOV	#000031, R1
@@ -1056,7 +1059,7 @@ L73052: MOV	R0, K53054		; set MagnifyX
 ;
 L73104: MOV	#000001, R0
 	CALL	K42704			; SetBorder
-	MOV	#K52456, R5
+	MOV	#K52456, R5		; exit address
 	CALL	K63646			; MenuOpen
 	MOV	K53054, R0		; get MagnifyX
 	CALL	L74322			; SetLensZoom
@@ -1183,7 +1186,7 @@ L73666: MTPS	#000340			; disable interrupts
 	BIS	#000340, K25474
 	BIS	#000340, K25500
 	BIC	#000140, K25506
-	MOV	K25506, @#177400
+	MOV	K25506, @#177400	; Memory control MS0515
 	MOVB	(R3), R4
 	MOV	K53056, R0		; get CurEditMode
 	BNE	L73736
@@ -1200,7 +1203,7 @@ L73750: BITB	R5, (R3)
 	CALL	K25354			; PixPlotReentryGuard
 	CALL	K22642			; SetPixelAttrRMW
 	BIS	#000140, K25506
-	MOV	K25506, @#177400
+	MOV	K25506, @#177400	; Memory control MS0515
 	MTPS	#000000			; enable interrupts
 	BIC	#000340, K25474
 	BIC	#000340, K25500
@@ -1516,7 +1519,7 @@ L75534: ADD	R0, (SP)
 	MOV	#000307, R4
 L75564: MOV	(SP)+, R2
 ; Entry point
-L75566: TST	K25514
+L75566: TST	K25514		; check TermStatusWord
 	BEQ	L75600
 	JMP	L76114
 L75600: MOV	K40272, R1
@@ -1677,11 +1680,11 @@ L76414: MOV	R3, -(SP)
 	BIS	#000340, K25474
 	BIS	#000340, K25500
 	BIC	#000140, K25506
-	MOV	K25506, @#177400
+	MOV	K25506, @#177400	; Memory control MS0515
 	MOVB	(R3)+, R4
 	MOVB	(R3), R5
 	BIS	#000140, K25506
-	MOV	K25506, @#177400
+	MOV	K25506, @#177400	; Memory control MS0515
 	MTPS	#000000			; enable interrupts
 	BIC	#000340, K25474
 	BIC	#000340, K25500

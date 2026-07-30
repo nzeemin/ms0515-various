@@ -18,8 +18,8 @@ K01000: ADD	R5, R2
 K10730:	.BLKW	1.
 K10732:	.WORD	0			; Input method, always 0
 K10734:	.WORD	0			; R3 Cursor screen address for CursSave/CursorHide
-K10736:	.WORD	0			; R4 ?? for CursSave/CursorHide
-K10740:	.WORD	0			; R1 ?? for CursSave/CursorHide
+K10736:	.WORD	0			; R4 save area Y for CursSave/CursorHide
+K10740:	.WORD	0			; R1 save area width for CursSave/CursorHide
 K10742:	.WORD	0			; R2 lines count for CursSave/CursorHide
 K10744:	.BLKW	96.			; Saved area buffer for CursSave/CursorHide
 
@@ -77,42 +77,42 @@ K11426: BIC	#000200, K25506		; screen in memory off
 ;
 ; Subroutine GetMasks (7 usages)
 ; (GetMasks (009-windows.asm) -- same mask-table-lookup algorithm)
-K11450: MOV	R1, -(SP)
-	CLR	K12046
-	CLR	K12050
+K11450: MOV	R1, -(SP)		; save width
+	CLR	K12046			; PixMaskL = 0
+	CLR	K12050			; PixMaskR = 0
 	MOV	R1, R0
 	DEC	R0
-	CMP	R0, #000011
+	CMP	R0, #000011		; width-1 < 9. (fits in one byte column)?
 	BLO	K11554
-	MOV	R3, R0
+	MOV	R3, R0			; X
 	BIC	#177770, R0		; 0..7
 	ASL	R0
-	BISB	012003(R0), K12046
+	BISB	012003(R0), K12046	; PixMaskL from left-edge table
 	ASR	R0
 	ADD	R1, R0
 	SUB	#000010, R0
-	MOV	R0, R1
+	MOV	R0, R1			; remaining width past first byte
+	ASR	R0			; /8 = full middle bytes
 	ASR	R0
 	ASR	R0
-	ASR	R0
-	MOV	R0, K12052
+	MOV	R0, K12052		; set PixScratch = middle byte count
 	BIC	#177770, R1		; 0..7
 	ASL	R1
-	BISB	K12002(R1), K12050
+	BISB	K12002(R1), K12050	; PixMaskR from right-edge table
 	BR	K11616
-K11554: ASL	R0
+K11554: ASL	R0			; width fits in one byte: combined-mask path
 	ASL	R0
 	ASL	R0
 	ASL	R0
-	MOV	R3, R1
+	MOV	R3, R1			; X
 	BIC	#177770, R1		; 0..7
 	ASL	R1
 	ADD	R1, R0
-	ADD	#K11622, R0		; + Masks1
-	BISB	(R0)+, K12050
-	BISB	(R0), K12046
-	CLR	K12052
-K11616: MOV	(SP)+, R1
+	ADD	#K11622, R0		; + Masks1 (2-D table indexed by width and X)
+	BISB	(R0)+, K12050		; PixMaskR from combined table
+	BISB	(R0), K12046		; PixMaskL from combined table
+	CLR	K12052			; no middle bytes
+K11616: MOV	(SP)+, R1		; restore width
 	RETURN
 ; Masks1:
 K11622::.WORD	077777,137777,157777,167777,173777,175777,176777,177377
@@ -126,14 +126,14 @@ K11622::.WORD	077777,137777,157777,167777,173777,175777,176777,177377
 K12002:	.WORD	000377,100177,140077,160037,170017,174007,176003,177001
 	.WORD	000177,100077,140037,160017,170007,174003,176001,177000
 ;
-K12042::.WORD	000377
-K12044::.WORD	000020
+K12042::.WORD	000377			; PixXc
+K12044::.WORD	000020			; PixYc
 K12046:	.WORD	000376
 K12050:	.WORD	000037
 K12052:	.WORD	000000
 ;
 ; Subroutine PutCursor (18 usages)
-; (PutCursor (017-menu.asm))
+; (PutCursor in 017-menu.asm)
 K12054::MOV	K62400, R5		; get CurCursAddr
 	MOVB	(R5)+, R1		; get cursor width
 	MOVB	(R5)+, R2		; get cursor height
@@ -153,21 +153,21 @@ K12114: CALL	K13114			; CursSave: Save screen area under cursor
 	JMP	K12612			; cursor 0 => PutCursMain
 ;
 ; Subroutine P_Curs1
-; (P_Curs1 (017-menu.asm))
+; (P_Curs1 in 017-menu.asm)
 K12132: MOV	K62400, R5		; get CurCursAddr
-	MOVB	(R5)+, R1
+	MOVB	(R5)+, R1		; cursor width
 	MOV	R1, K13104
-	MOVB	(R5)+, R2
+	MOVB	(R5)+, R2		; cursor height
 	DEC	R1
 	ASR	R1
 	ASR	R1
 	ASR	R1
 	ADD	#000003, R1
-	MOV	R1, K12052
-	MOVB	(R5)+, R1
-	MOVB	(R5)+, R0
+	MOV	R1, K12052		; set PixScratch = bytes/row for this width
+	MOVB	(R5)+, R1		; cursor offset X
+	MOVB	(R5)+, R0		; cursor offset Y
 	MOV	K62376, R4		; get Mouse Y
-	SUB	R0, R4
+	SUB	R0, R4			; clip Y at screen top
 	BHIS	K12226
 	MOV	R4, R0
 	CLR	R4
@@ -235,37 +235,37 @@ K12446: ASL	K13106
 	SOB	R1, K12446
 K12460: CLR	R0
 	BISB	K13104, R0
-	XOR	R0, (R3)+
+	XOR	R0, (R3)+		; plot left edge byte of cursor row
 	MOV	(SP)+, R2
-	CMP	#000001, <K16654+4>
+	CMP	#000001, <K16654+4>	; only 1 byte wide?
 	BEQ	K12536
 	CLR	R0
 	BISB	K13107, R0
-	XOR	R0, (R3)+
-	CMP	#000002, <K16654+4>
+	XOR	R0, (R3)+		; plot middle byte(s)
+	CMP	#000002, <K16654+4>	; only 2 bytes wide?
 	BEQ	K12536
 	DEC	R2
 	BEQ	K12536
 	CLR	R0
 	BISB	K13106, R0
-	XOR	R0, (R3)
-K12536: MOV	(SP)+, R1
-	MOV	(SP)+, R5
-	ADD	K12052, R5
-	MOV	(SP)+, R3
+	XOR	R0, (R3)			; plot right edge byte
+K12536: MOV	(SP)+, R1		; restore mask width
+	MOV	(SP)+, R5		; restore cursor sprite ptr
+	ADD	K12052, R5		; advance to next sprite row
+	MOV	(SP)+, R3		; restore screen addr
 	ADD	#000120, R3		; next line
-	MOV	(SP)+, R0
-	CMP	R3, #077200
+	MOV	(SP)+, R0		; restore row counter
+	CMP	R3, #077200		; past screen bottom?
 	BHIS	K12574
 	DEC	R0
 	BEQ	K12574
-	JMP	K12342
+	JMP	K12342			; next sprite row
 K12574: BIC	#000200, K25506		; screen in memory off
 	MOV	K25506, @#177400	; Memory control MS0515
 	RETURN
 ;
 ; Subroutine PutCursMain
-; (PutCursMain (017-menu.asm))
+; (PutCursMain in 017-menu.asm)
 K12612: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	R3, R0
@@ -333,13 +333,15 @@ K13105 = K13104 + 1
 K13106:	.WORD	0
 K13107 = K13106 + 1
 ;
-; Subroutine JCursHide (16 usages): Restore area under cursor
-; (JCursHide / CursorHide (017-menu.asm))
+; Subroutine JCursHide (16 usages)
+; Restore area under cursor
+; (JCursHide / CursorHide in 017-menu.asm)
 K13110::JMP	K13142			; => CursorHide: Restore screen area under cursor
 ;
-; Subroutine CursSave: Save screen area under cursor
+; Subroutine CursSave
+; Save screen area under cursor
 ; R1 = width, R2 = height, R3/R4 = X/Y
-; (CursSave (009-windows.asm))
+; (CursSave in 009-windows.asm)
 K13114: MOV	R3, K10734		; save area X
 	MOV	R4, K10736		; save area Y
 	MOV	R1, K10740		; save width
@@ -354,7 +356,7 @@ K13142: MOV	K10734, R3		; restore area X
 	MOV	K10742, R2		; restore area height
 	MOV	#012123, R0		; "MOV (R1)+,(R3)+" command
 ;
-; R0 = copy command, R1 = ??, R2 = lines count, R3/R4 = saved area X/Y
+; R0 = copy command, R1 = unused on entry (overwritten below), R2 = lines count, R3/R4 = saved area X/Y
 K13166: MOV	R0, K13230		; set copy command
 	MOV	R0, K13232		; set copy command
 	MOV	R0, K13234		; set copy command
@@ -430,7 +432,7 @@ K13474: MOV	R3, R1
 	RETURN
 ;
 ; Subroutine GetBuff
-; (GetBuff (009-windows.asm))
+; (GetBuff in 009-windows.asm)
 K13514: MOV	K30536, R0		; get BuffAddr
 	MOV	-(R0), K30536		; set BuffAddr
 	MOV	-(R0), R2
@@ -468,7 +470,7 @@ K13626: BIC	#000200, K25506		; screen in memory off
 	RETURN
 ;
 ; Subroutine PixInvert (14 usages)
-; (PixInvert (009-windows.asm))
+; (PixInvert in 009-windows.asm)
 K13644::JSR	R5, K15424
 	CALL	K11450			; GetMasks
 	CALL	K27752			; PixAddr0
@@ -494,9 +496,9 @@ K13730: XOR	R1, (R3)
 	RETURN
 ;
 ; Subroutine PixClear
-; (PixClear (009-windows.asm))
+; (PixClear in 009-windows.asm)
 K13760::MOV	R3, K12042		; set PixXc
-	MOV	R4, K12044
+	MOV	R4, K12044		; set PixYc
 	CALL	K11450			; GetMasks
 	CALL	K27752			; PixAddr0
 	MOV	R2, -(SP)
@@ -516,11 +518,11 @@ K14032: MOV	R3, -(SP)
 	ADD	#000120, R3		; next line
 	SOB	R2, K14032
 	MOV	(SP)+, R2
-	MOV	K12042, R3
+	MOV	K12042, R3		; get PixXc
 	RETURN
 ;
 ; Subroutine PutLens
-; (PutLens (010-fill.asm))
+; (PutLens in 010-fill.asm)
 K14060::MOV	R1, -(SP)
 	MOV	R2, -(SP)
 	MOV	R3, -(SP)
@@ -561,57 +563,57 @@ K14202: MOV	(SP)+, R4
 	RETURN
 ;
 ; Subroutine EditLens
-; (EditLens (010-fill.asm))
-K14240::MOV	R3, -(SP)
-	MOV	R4, -(SP)
+; (EditLens in 010-fill.asm)
+K14240::MOV	R3, -(SP)		; save lens origin X
+	MOV	R4, -(SP)		; save lens origin Y
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
-	SUB	(SP)+, R4
-	SUB	(SP)+, R3
-	BIT	#000007, R3
+	SUB	(SP)+, R4		; Y relative to lens origin
+	SUB	(SP)+, R3		; X relative to lens origin
+	BIT	#000007, R3		; on the 8-pixel grid?
 	BNE	K14270
 	RETURN
-K14270: ASR	R3
+K14270: ASR	R3			; X / 8 = column within lens
 	ASR	R3
 	ASR	R3
-	BIT	#000007, R4
+	BIT	#000007, R4		; on the 8-pixel grid?
 	BNE	K14306
 	RETURN
-K14306: ASR	R4
+K14306: ASR	R4			; Y / 8 = row within lens
 	ASR	R4
 	ASR	R4
 	BEQ	K14336
-	MOV	R1, R0
+	MOV	R1, R0			; bytes-per-row of the lens bitmap
 	DEC	R0
 	ASR	R0
 	ASR	R0
 	ASR	R0
 	INC	R0
-K14332: ADD	R0, R5
+K14332: ADD	R0, R5			; advance R5 by one lens row
 	SOB	R4, K14332
 K14336: MOV	R3, R0
+	ASR	R0			; column / 8 = byte offset within row
 	ASR	R0
 	ASR	R0
-	ASR	R0
-	ADD	R0, R5
+	ADD	R0, R5			; R5 = byte containing this pixel
 	MOV	R3, R0
 	BIC	#177770, R0		; 0..7
 	INC	R0
 	CLR	R3
 	SEC
-K14364: RORB	R3
+K14364: RORB	R3			; build single-bit mask for this pixel
 	SOB	R0, K14364
 	MOV	R3, R0
 	MOV	R1, -(SP)
-	MOVB	(R5), R1
-	XOR	R1, R0
-	MOVB	R0, (R5)
+	MOVB	(R5), R1		; get lens byte
+	XOR	R1, R0			; toggle the pixel bit
+	MOVB	R0, (R5)		; store back into lens bitmap
 	COM	R3
-	BICB	R3, R0
+	BICB	R3, R0			; isolate just the toggled bit
 	MOV	(SP)+, R1
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
-	BIC	#000007, R4
+	BIC	#000007, R4		; snap Y to 8-pixel grid for redraw
 	CALL	K27752			; PixAddr0
 	BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
@@ -634,28 +636,28 @@ K14472: ADD	#000120, R3		; next line
 ; window marquee (marching-ants dashed selection rectangle); dispatch table of up
 ; to 8 pattern phases via R0, masks from K15070 (_VMasks).
 K14520: JSR	R5, K15424
-	MOV	R0, R5
-	MOV	R4, -(SP)
-	MOV	R3, -(SP)
-	MOV	R1, -(SP)
-	CALL	K27752			; PixAddr0
-	MOV	R3, -(SP)
-	MOV	R1, R3
-	CALL	K27752			; PixAddr0
-	MOV	R3, R2
-	MOV	(SP)+, R3
-	MOV	(SP)+, R0
+	MOV	R0, R5			; row count
+	MOV	R4, -(SP)		; save Y2
+	MOV	R3, -(SP)		; save X2
+	MOV	R1, -(SP)		; save X1
+	CALL	K27752			; PixAddr0 -> screen addr for (X2,Y2)
+	MOV	R3, -(SP)		; save that address
+	MOV	R1, R3			; X1
+	CALL	K27752			; PixAddr0 -> screen addr for (X1,Y2)
+	MOV	R3, R2			; second column's address
+	MOV	(SP)+, R3		; first column's address
+	MOV	(SP)+, R0		; X2
 	BIC	#177770, R0		; 0..7
 	CLR	R1
-	BISB	K15070(R0), R1
-	MOV	(SP)+, R0
+	BISB	K15070(R0), R1		; _VMasks bit for X2's column
+	MOV	(SP)+, R0		; X1
 	BIC	#177770, R0		; 0..7
 	CLR	R4
-	BISB	K15070(R0), R4
-	CMP	177776(SP), 177774(SP)
+	BISB	K15070(R0), R4		; _VMasks bit for X1's column
+	CMP	177776(SP), 177774(SP)	; X1 == X2 ?
 	BNE	K14616
-	CLR	R1
-K14616: MOV	(SP)+, R0
+	CLR	R1			; single column, only draw one side
+K14616: MOV	(SP)+, R0		; dash-phase index
 	BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
 	BIC	#177770, R0		; 0..7
@@ -717,7 +719,7 @@ K15052: BIC	#000200, K25506		; screen in memory off
 	RETURN
 ;
 ; _VMasks: (l91ac) (lc70f)
-K15070::.BYTE	200,100,040,020,010,004,002,001
+K15070::.BYTE	200,100,040,020,010,004,002,001	; _VMasks
 ;
 ; Subroutine DashHrzRun
 ; XORs a fixed dashed pattern (#000314) across a horizontal masked pixel run --
@@ -770,9 +772,10 @@ K15424: MOV	R4, -(SP)
 	RETURN
 ;
 ; Subroutine _VrtLine (24 usages)
+; (_VrtLine in 017-menu.asm)
 K15464::JSR	R5, K15424
-	MOV	R3, K12042
-	MOV	R4, K12044
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 	MOV	R3, R5
 	BIC	#177770, R5		; 0..7
 	CLR	R0
@@ -816,28 +819,29 @@ K15652: BIC	#000200, K25506		; screen in memory off
 	RETURN
 ;
 ; Subroutine _HrzLine (16 usages)
+; (_HrzLine in 017-menu.asm)
 K15670::JSR	R5, K15424
 	CALL	K11450			; GetMasks
 	CALL	K27752			; PixAddr0
 	MOVB	K17523, R5		; get _Attrs1
 	MOVB	K17522, R1		; get _Attrs0
-	BICB	R5, R1
+	BICB	R5, R1			; combine ink/paper into one attr byte
 	COMB	R5
 	BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
-	MOV	#000001, R0
+	MOV	#000001, R0		; middle-column word count
 	TSTB	R5
 	BEQ	K15746
 	INC	R0
 K15746: ADD	K12052, R0
-	MOV	R0, -(SP)
-	MOV	R3, -(SP)
+	MOV	R0, -(SP)		; save word count
+	MOV	R3, -(SP)		; save screen addr
 	INC	R3
-K15760: BICB	R5, (R3)
-	BISB	R1, (R3)+
+K15760: BICB	R5, (R3)		; apply mask
+	BISB	R1, (R3)+		; apply attr byte
 	INC	R3
-	SOB	R0, K15760
-	MOV	(SP)+, R3
+	SOB	R0, K15760		; repeat for line body
+	MOV	(SP)+, R3		; restore screen addr
 	MOV	(SP)+, R0
 	TST	K17524			; check InvertFl
 	BNE	K16112
@@ -889,31 +893,31 @@ K16150: BIC	#000200, K25506		; screen in memory off
 ; PutImage: blits an arbitrary bitmap (R5=data ptr) onto the screen at R3/R4 with
 ; width R1/height R2, honoring InvertFl/PixelMode; used by PixPrint-family text
 ; and flag/checkbox drawing.
-K16166::MOVB	(R5)+, R1
-	MOVB	(R5)+, R2
-	MOV	R3, K12042
-	MOV	R4, K12044
+K16166::MOVB	(R5)+, R1		; image width
+	MOVB	(R5)+, R2		; image height
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 	CALL	K16644			; ImageTrailShift
-	ADD	R1, R3
-	CMP	#000477, R3
+	ADD	R1, R3			; right edge X
+	CMP	#000477, R3		; past screen right (320.)?
 	BHIS	K16240
-	MOV	K12042, R3
-	ASR	R3
+	MOV	K12042, R3		; get PixXc
+	ASR	R3			; bytes-per-row up to the trailing edge
 	ASR	R3
 	ASR	R3
 	NEG	R3
 	ADD	#000050, R3
 	BR	K16264
-K16240: MOV	K12042, R3
+K16240: MOV	K12042, R3		; get PixXc
 	BIC	#177770, R3		; 0..7
 	ADD	R1, R3
 	DEC	R3
-	ASR	R3
+	ASR	R3			; whole bytes spanned by the image
 	ASR	R3
 	ASR	R3
 	INC	R3
-K16264: MOV	R3, K12052
-	MOV	K12042, R3
+K16264: MOV	R3, K12052		; set PixScratch = bytes/row
+	MOV	K12042, R3		; get PixXc
 	CALL	K27752			; PixAddr0
 	BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
@@ -921,44 +925,44 @@ K16264: MOV	R3, K12052
 	MOV	R2, -(SP)
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
-	MOV	R2, R4
+	MOV	R2, R4			; row counter = height
 	MOVB	K17522, R1		; get _Attrs0
 	MOVB	K17523, R2		; get _Attrs1
 	BIC	R2, R1
 	COMB	R2
-	BEQ	K16374
+	BEQ	K16374			; no attr change needed =>
 	INC	R3
-K16346: MOV	R3, -(SP)
-	MOV	K12052, R0
-K16354: BICB	R2, (R3)
-	BISB	R1, (R3)+
+K16346: MOV	R3, -(SP)		; save row's screen addr
+	MOV	K12052, R0		; bytes/row
+K16354: BICB	R2, (R3)		; apply attr mask
+	BISB	R1, (R3)+		; apply attr bits
 	INC	R3
 	SOB	R0, K16354
-	MOV	(SP)+, R3
+	MOV	(SP)+, R3		; restore row's screen addr
 	ADD	#000120, R3		; next line
-	SOB	R4, K16346
+	SOB	R4, K16346		; repeat for every row
 K16374: MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	MOV	(SP)+, R2
 	MOV	(SP)+, R1
-K16404:	MOV	R1, -(SP)
-	MOV	R5, -(SP)
-	MOV	R3, -(SP)
-	MOV	K12052, R4
+K16404:	MOV	R1, -(SP)		; save width
+	MOV	R5, -(SP)		; save image data ptr
+	MOV	R3, -(SP)		; save screen addr
+	MOV	K12052, R4		; bytes/row = column loop count
 	DEC	R1
-	ASR	R1
+	ASR	R1			; width/8 rounded up = source bytes/row
 	ASR	R1
 	ASR	R1
 	INC	R1
-	MOV	<K16654+4>, <K16552+2>
-	MOV	K12042, R0
+	MOV	<K16654+4>, <K16552+2>	; carry the trailing-byte shift into this row
+	MOV	K12042, R0		; get PixXc
 	CLR	K13106
-K16446: MOVB	(R5), K13106
+K16446: MOVB	(R5), K13106		; get source byte
 	DEC	R1
 	BPL	K16462
 	CLRB	K13106
 K16462: MOV	SP, K25524
-	MOV	K12042, R0
+	MOV	K12042, R0		; get PixXc
 	BIC	#177770, R0		; 0..7
 	BEQ	K16510
 K16500: CLC
@@ -986,15 +990,15 @@ K16566: MOV	(SP)+, R3
 	MOV	(SP)+, R1
 	MOV	R1, R0
 	DEC	R0
-	ASR	R0
+	ASR	R0			; source bytes/row, again
 	ASR	R0
 	ASR	R0
 	INC	R0
-	ADD	R0, R5
+	ADD	R0, R5			; advance to next source row
 	ADD	#000120, R3		; next line
-	DEC	R2
+	DEC	R2			; row counter
 	BEQ	K16626
-	JMP	K16404
+	JMP	K16404			; repeat for next row
 K16626: BIC	#000200, K25506		; screen in memory off
 	MOV	K25506, @#177400	; Memory control MS0515
 	RETURN
@@ -1011,9 +1015,10 @@ K16654: MOV	#000050, #000000	;!!MUT-2ND-ARG!!
 	MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine PixPrint: Печать символа по координатам
+; Subroutine PixPrint
+; Print symbol at the given coords
 ; R3 = coords, R2 = symbol address
-; (PixPrint (017-menu.asm))
+; (PixPrint in 017-menu.asm)
 K16672::MOV	R1, -(SP)
 	MOV	R4, -(SP)
 	MOV	R5, -(SP)
@@ -1056,9 +1061,10 @@ K17034: MOV	(SP)+, R3
 	MOV	(SP)+, R1
 	RETURN
 ;
-; Subroutine PrtFlag_V (12 usages): Печать флага как пусто [ ] или галочка [V]
+; Subroutine PrtFlag_V (12 usages)
+; Print a flag as empty [ ] or checked [V]
 ; R0 = flag value
-; (PrtFlagY (017-menu.asm) -- same conditional-checkbox-glyph logic)
+; (PrtFlagY in 017-menu.asm) -- same conditional-checkbox-glyph logic)
 K17070::MOV	R0, -(SP)		; save flag value
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
@@ -1082,13 +1088,13 @@ K17134: MOV	(SP), R1
 	BR	K17146
 ;
 ; Subroutine PrtFlagXYStack (10 usages)
-; (PrtFlagXY (017-menu.asm))
+; (PrtFlagXY in 017-menu.asm)
 K17144: MOV	(SP)+, R1
 K17146: MOV	@(R1)+, R0		; get flag value
 	MOV	(R1)+, R3
 	MOV	(R1)+, R4
 ; Entry point: PrtFlagXY
-; R0 = flag value, R3 = ??, R4 = ??
+; R0 = flag value, R3 = X, R4 = Y (checkbox glyph position, passed to PixClear/PutImage)
 K17154::MOV	R0, -(SP)
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
@@ -1114,7 +1120,7 @@ K17256: .BYTE	011,007			; 9. x 7.
 	.BYTE	000,000,021,000,012,000,004,000,012,000,021,000,000,000
 
 ; Subroutine PixBox
-; (PixBox (017-menu.asm))
+; (PixBox in 017-menu.asm)
 K17276::MOVB	#000377, K25521		; set _Attrs2
 	MOV	K25520, K17522
 	CLR	K17526			; clear PixelMode
@@ -1139,7 +1145,7 @@ K17342: MOVB	#000377, K25521		; set _Attrs2
 	RETURN
 
 ; Subroutine PixFrame
-; (PixFrame (017-menu.asm))
+; (PixFrame in 017-menu.asm)
 K17410::MOV	R5, -(SP)
 	CLR	R5
 	BISB	K25521, R5		; get _Attrs2
@@ -1750,7 +1756,8 @@ K22642::BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
 	RETURN
 ;
-; Subroutine XorBox2Row: XOR 8x2 pixel box with R5, set attr with R0
+; Subroutine XorBox2Row
+; XOR 8x2 pixel box with R5, set attr with R0
 K22726::BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
 	XOR	R5, (R3)
@@ -1762,7 +1769,8 @@ K22726::BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
 	RETURN
 ;
-; Subroutine XorBox4Row: XOR 8x4 pixel box with R5, set attr with R0
+; Subroutine XorBox4Row
+; XOR 8x4 pixel box with R5, set attr with R0
 K23000::BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
 	MOV	#000004, R4		; 4.
@@ -1774,7 +1782,8 @@ K23020: XOR	R5, (R3)
 	MOV	K25506, @#177400	; Memory control MS0515
 	RETURN
 ;
-; Subroutine FillBox8Row: fill 8x8 pixel box with R0
+; Subroutine FillBox8Row
+; Fill 8x8 pixel box with R0
 K23052::BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
 	MOV	#000010, R4		; 8.
@@ -1849,7 +1858,7 @@ K23354: CLR	000006(SP)
 K23360: MOV	SP, R0			; R0 = EMT 375 block address
 	EMT	375			; execute the command
 	BLO	K23612			; Show error "Файл не найден" / "Диск заполнен"
-	BIC	#000014, @#157700
+	BIC	#000014, @#157700	; select alt RAM for blocks 2,3
 	MOV	@#157700, @#177400	; Memory control MS0515
 	CLR	000010(SP)
 	MOV	#000400, 000006(SP)	; read/write 256. words = 512. bytes
@@ -1872,7 +1881,7 @@ K23500: INC	000002(SP)		; next block
 	BR	K23454			; continue read / write
 K23514: CMP	000002(SP), #000005	; = 5. ? (font is 6. blocks = 3K bytes)
 	BLO	K23500
-K23524: BIS	#000014, @#157700
+K23524: BIS	#000014, @#157700	; select main RAM for blocks 2,3
 	MOV	@#157700, @#177400	; Memory control MS0515
 	MOV	#003016, R0		; close file command
 	EMT	374			; execute close file
@@ -1907,7 +1916,7 @@ K23652: MOV	#K24146, R3		; "Файл не закрыт"
 K23660: MOV	#K24024, R3		; "Ошибка имени"
 ;
 ; Show error message on the screen
-K23664: BIS	#000014, @#157700
+K23664: BIS	#000014, @#157700	; select main RAM for blocks 2,3
 	MOV	@#157700, @#177400	; Memory control MS0515
 	MOV	#K41150, R2		; error message buffer addr
 K23704:	MOV	(R3)+, R5		; get string length
@@ -1951,7 +1960,7 @@ K24126:	.BYTE	016, 000
 K24146:	.BYTE	020, 000
 	.ASCII	/Файл не закрыт/<0><0>
 ;
-; Subroutine: Update the whole screen ??
+; Subroutine UpdateScreen
 K24170: MOV	R3, -(SP)
 	MOV	R5, -(SP)
 	MOV	#120000, R5		; copy from
@@ -1982,7 +1991,7 @@ K24330:	MOV	(SP)+, R5
 	MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine: Save the whole screen ??
+; Subroutine SaveScreen
 K24336: MOV	R3, -(SP)
 	MOV	R5, -(SP)
 	MOV	#120000, R3		; copy to
@@ -2077,8 +2086,9 @@ K24742::MOV	#103600, K30536		; set BuffAddr
 	MOV	K30534, SP		; restore SP: STK_Q -> SP
 	JMP	K61120			; MAIN
 ;
-; Subroutine ClearScreen (4 usages): fills screen with R0
-; (ClearScreen (008-misc.asm))
+; Subroutine ClearScreen (4 usages)
+; Fills screen with R0
+; (ClearScreen in 008-misc.asm)
 K25024::MOV	#002000, R1
 	MOV	#040000, R2		; scrren addr
 	MOV	@#157700, K25506
@@ -2128,36 +2138,37 @@ K25222: MOV	R4, -(SP)
 K25234: MOV	#000066, @#177722	; Serial control MS0515
 K25242: RTI
 ;
-; Subroutine EXX ?? (17 usages)
-K25244::MOV	R5, -(SP)
-	MOV	#K25440, R5
-	TST	(R5)
-	BNE	K25314
-	MOV	SP, (R5)+
-	MOV	R1, (R5)+
-	MOV	R2, (R5)+
-	MOV	R3, (R5)+
-	MOV	R4, (R5)+
-	MOV	K25520, (R5)+
-	MOV	(R5)+, R1
-	MOV	(R5)+, R2
-	MOV	(R5)+, R3
-	MOV	(R5)+, R4
-	MOV	(R5), K25520
-K25310: MOV	(SP)+, R5
+; Subroutine EXX (17 usages)
+; Emulates the Z80 EXX instruction (swaps R1-R3 with a shadow copy via K25440)
+K25244::MOV	R5, -(SP)		; save R5
+	MOV	#K25440, R5		; shadow-register buffer addr
+	TST	(R5)			; check "already swapped" flag
+	BNE	K25314			; swapped => swap back
+	MOV	SP, (R5)+		; save SP
+	MOV	R1, (R5)+		; save R1
+	MOV	R2, (R5)+		; save R2
+	MOV	R3, (R5)+		; save R3
+	MOV	R4, (R5)+		; save R4
+	MOV	K25520, (R5)+		; save PixByte
+	MOV	(R5)+, R1		; restore shadow R1
+	MOV	(R5)+, R2		; restore shadow R2
+	MOV	(R5)+, R3		; restore shadow R3
+	MOV	(R5)+, R4		; restore shadow R4
+	MOV	(R5), K25520		; restore shadow PixByte
+K25310: MOV	(SP)+, R5		; restore R5
 	RETURN
-K25314: ADD	#000024, R5
-	MOV	K25520, (R5)
-	MOV	R4, -(R5)
-	MOV	R3, -(R5)
-	MOV	R2, -(R5)
-	MOV	R1, -(R5)
-	MOV	-(R5), K25520
-	MOV	-(R5), R4
-	MOV	-(R5), R3
-	MOV	-(R5), R2
-	MOV	-(R5), R1
-	CLR	-(R5)
+K25314: ADD	#000024, R5		; point past the saved-register buffer
+	MOV	K25520, (R5)		; store current PixByte
+	MOV	R4, -(R5)		; store current R4
+	MOV	R3, -(R5)		; store current R3
+	MOV	R2, -(R5)		; store current R2
+	MOV	R1, -(R5)		; store current R1
+	MOV	-(R5), K25520		; restore saved PixByte
+	MOV	-(R5), R4		; restore saved R4
+	MOV	-(R5), R3		; restore saved R3
+	MOV	-(R5), R2		; restore saved R2
+	MOV	-(R5), R1		; restore saved R1
+	CLR	-(R5)			; clear "swapped" flag
 	BR	K25310
 ;
 ; Subroutine PixPlotReentryGuard
@@ -2191,7 +2202,7 @@ K25474::.BLKW	2.
 K25500::.BLKW	3.
 K25506::.WORD	0	; Значение для регистра диспетчера памяти 177400
 K25510:	.BLKW	2.	; Блок для вызова .SCCA
-K25514::.WORD	0
+K25514::.WORD	0			; TermStatusWord
 K25516::.WORD	0
 K25520::.WORD	0
 K25521 == K25520 + 1	; _Attrs2
@@ -2264,7 +2275,7 @@ K25764: CALL	K26162			; CopyLine0
 K26020:	TST	K56110			; check WindDefFl
 	BEQ	K26032
 	CALL	K56222			; WindMarqueeErase
-K26032: TST	K56114		; check BoxSelectFl
+K26032: TST	K56114			; check BoxSelectFl
 	BEQ	K26044
 	CALL	K60164			; BoxOutlineRedraw
 K26044: MOV	(SP)+, K56106
@@ -2298,7 +2309,7 @@ K26146: CALL	K27752			; PixAddr0
 	BR	K26076
 ;
 ; Subroutine CopyLine0
-; (CopyLine0 (015-main.asm))
+; (CopyLine0 in 015-main.asm)
 K26162: MOV	R1, -(SP)
 	MOV	R2, -(SP)
 	MOV	R3, -(SP)
@@ -2496,27 +2507,27 @@ K27242: MOV	(R5)+, (R3)+
 ; Startup screen-buffer initializer: computes ink/paper fill masks via K27734, then
 ; clears the alt-RAM screen buffer, followed by the primary-RAM screen buffer, to
 ; those masks. Called once from START before entering the main menu.
-K27336: MOV	#120000, R3
+K27336: MOV	#120000, R3		; alt-RAM screen buffer
 	CALL	K27734			; BuildAttrMasks
-	MOV	#001750, R0
+	MOV	#001750, R0		; word count for the alt buffer
 	MTPS	#000340			; disable interrupts
 	BIS	#000340, K25474
 	BIS	#000340, K25500
 	BIC	#000140, K25506		; select alt RAM for blocks 5,6
 	MOV	K25506, @#177400	; Memory control MS0515
-	BR	K27614
-; ClearScreen0 ?? (l8aa3)
-K27410: CLR	R3
-	MOV	#000030, R4
+	BR	K27614			; fill it, then continue into the primary buffer
+; ClearScreen0 (l8aa3): clears the visible screen (page 0) to the ink/paper masks
+K27410: CLR	R3			; X = 0
+	MOV	#000030, R4		; Y = 24.
 	CALL	K27752			; PixAddr0
 	CALL	K27734			; BuildAttrMasks
-	MOV	#001560, R0
+	MOV	#001560, R0		; word count for the visible screen
 	MTPS	#000340			; disable interrupts
 	BIS	#000340, K25474
 	BIS	#000340, K25500
 	BIS	#000200, K25506		; screen in memory on
 	MOV	K25506, @#177400	; Memory control MS0515
-K27466: CLRB	(R3)+
+K27466: CLRB	(R3)+			; clear pixel byte, then mask+set 3 attribute bytes
 	BICB	R2, (R3)
 	BISB	R1, (R3)+
 	CLRB	(R3)+
@@ -2540,15 +2551,15 @@ K27466: CLRB	(R3)+
 	CLRB	(R3)+
 	BICB	R2, (R3)
 	BISB	R1, (R3)+
-	SOB	R0, K27466
+	SOB	R0, K27466			; repeat for the whole visible screen
 	BIC	#000200, K25506		; screen in memory off
 	MOV	K25506, @#177400	; Memory control MS0515
 	MTPS	#000000			; enable interrupts
 	BIC	#000340, K25474
 	BIC	#000340, K25500
-	MOV	#100000, R3
-	MOV	#000170, R0
-K27614: CLRB	(R3)+
+	MOV	#100000, R3		; screen page 1
+	MOV	#000170, R0		; word count for page 1
+K27614: CLRB	(R3)+			; clear pixel byte, then mask+set 3 attribute bytes
 	BICB	R2, (R3)
 	BISB	R1, (R3)+
 	CLRB	(R3)+
@@ -2572,7 +2583,7 @@ K27614: CLRB	(R3)+
 	CLRB	(R3)+
 	BICB	R2, (R3)
 	BISB	R1, (R3)+
-	SOB	R0, K27614
+	SOB	R0, K27614			; repeat for the whole buffer
 	BIS	#000140, K25506		; select primary RAM for blocks 5,6
 	MOV	K25506, @#177400	; Memory control MS0515
 	MTPS	#000000			; enable interrupts
@@ -2590,34 +2601,35 @@ K27734: MOVB	K17522, R1		; get _Attrs0
 	RETURN
 ;
 ; Subroutine PixAddr0 (37 usages)
-; R3 = ??, R4 = ??
-; (PixAddr0 (015-main.asm))
-K27752::MOV	R4, -(SP)
-	ASL	R4
-	ASL	R4
-	ASL	R4
-	ASL	R4
-	MOV	R4, -(SP)
-	ASL	R4
-	ASL	R4
-	ADD	(SP)+, R4
+; R3 = X (pixel column, 0-255.), R4 = Y (pixel row, 0-191.)
+; Returns: R3 = screen byte address, R4 unchanged
+; (PixAddr0 in 015-main.asm)
+K27752::MOV	R4, -(SP)		; save Y
+	ASL	R4			; Y*2
+	ASL	R4			; Y*4
+	ASL	R4			; Y*8
+	ASL	R4			; Y*16.
+	MOV	R4, -(SP)		; save Y*16.
+	ASL	R4			; Y*32.
+	ASL	R4			; Y*64.
+	ADD	(SP)+, R4		; + Y*16. = Y*80. = row offset into pixel plane
 	CMP	R4, #037060
-	BLOS	K30024
-	SUB	#037200, R4
+	BLOS	K30024			; within first screen page =>
+	SUB	#037200, R4		; wrap into second half of the page
 	CMP	R4, #003600
 	BLO	K30016
 	CLR	R4
-K30016: ADD	#100000, R4
+K30016: ADD	#100000, R4		; select 2nd screen page base
 	BR	K30030
-K30024: ADD	#040000, R4
-K30030: ASR	R3
-	ASR	R3
-	ASR	R3
-	TSTB	@#157760
-	BMI	K30046
-	ASL	R3
-K30046: ADD	R4, R3
-	MOV	(SP)+, R4
+K30024: ADD	#040000, R4		; select 1st screen page base
+K30030: ASR	R3			; X/2
+	ASR	R3			; X/4
+	ASR	R3			; X/8 = byte column
+	TSTB	@#157760		; check hardware screen-mode flag
+	BMI	K30046			; skip doubling =>
+	ASL	R3			; double byte column (interleaved-plane stride)
+K30046: ADD	R4, R3			; + row offset = final screen byte address
+	MOV	(SP)+, R4		; restore Y
 	RETURN
 K30054: INC	R3
 	RETURN
@@ -2732,7 +2744,7 @@ K30720: CALL	K30772			; CurBrashMask
 	JMP	K14240			; EditLens
 ;
 ; Subroutine CurBrashAddr
-; (CurBrashAddr (011-paint.asm))
+; (CurBrashAddr in 011-paint.asm)
 K30754: MOV	K34416, R3		; get CurBrush
 	ASL	R3
 	ADD	#K06042, R3		; + TabBrush
@@ -2740,7 +2752,7 @@ K30754: MOV	K34416, R3		; get CurBrush
 	RETURN
 ;
 ; Subroutine CurBrashMask
-; (CurBrashMask (011-paint.asm))
+; (CurBrashMask in 011-paint.asm)
 K30772: CALL	K30754			; CurBrashAddr
 	CLR	R1
 	MOVB	(R5), R1
@@ -2779,6 +2791,7 @@ K31104: CALL	K42334			; MakeAttrs
 	ADD	R0, R3
 	MOV	(R3), R5
 ; Subroutine BrushCursorPosition (entry point)
+; (l8d30 in 011-paint.asm)
 K31160: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOVB	(R5), R0
@@ -2932,6 +2945,7 @@ K32170: MOV	#006002, R2
 	MOV	#000100, R4
 	MOV	#000043, R3
 ; Subroutine DrawBrushIconGrid (entry point)
+; (l8ebc in 011-paint.asm)
 K32220: MOV	#000010, R0		; 8.
 K32224: MOV	R0, -(SP)
 	MOV	(R2)+, R5
@@ -2951,6 +2965,7 @@ K32224: MOV	R0, -(SP)
 ; Computes a centered X/Y draw position for a cursor/brush preview icon from its
 ; width/height bytes (R5), using a "(23-size)/2" centering formula, then PutImage-
 ; blits it. Used by PaintPen/PaintBrush menu-icon drawing.
+; (l8ed5 in 011-paint.asm)
 K32262: MOVB	(R5), R0
 	NEG	R0
 	ADD	#000023, R0
@@ -2993,12 +3008,12 @@ K32450: MOV	R5, <K32560+2>
 	MOV	R2, K32566		; set BrushMenuY
 	MOV	R0, K32572		; set BrushMenuH
 	MOV	R4, K32600
-	MOV	R0, K32610
+	MOV	R0, K32610		; set BrushItemH
 	MOV	#K32630, R2		; Адрес буфера 9 символов после "Выбери "
 	MOV	#000011, R1		; 9. = string length
 K32510: MOVB	(R3)+, (R2)+		; copy symbol
 	SOB	R1, K32510		; repeat
-	MOV	#K32564, R5
+	MOV	#K32564, R5		; BrushMenuX address
 ;
 K32520: MOV	K65276, 000012(R5)
 	MOV	R5, K65276		; set Menu_Addr
@@ -3017,7 +3032,7 @@ K32572:	.WORD	000120			; BrushMenuH
 K32574: .WORD	034040
 	.WORD	K31420
 K32600: .WORD	K32170,000000,000000,000330
-K32610: .WORD	000120			; ??
+K32610: .WORD	000120			; BrushItemH
 	.WORD	000000,144000,004027
 K32620: .ASCII	<010>/Выбери /
 K32630:	.ASCII	/карандаш:/<000>	; Буфер 9 символов
@@ -3157,26 +3172,27 @@ K33774: CALL	K17144			; PrtFlagXYStack
 ; Builds a round/triangular brush-shape mask bitmap into a scratch buffer from a
 ; radius parameter (R1), using a squared-distance table (K34304/K34316) to test
 ; each pixel against the brush radius -- the paint-brush/spray shape rasterizer.
-K34006: MOV	R3, -(SP)
-	MOV	R1, -(SP)
-	MOV	R1, R0
+; (l911c in 011-paint.asm)
+K34006: MOV	R3, -(SP)		; save mask buffer addr
+	MOV	R1, -(SP)		; save radius
+	MOV	R1, R0			; bytes-per-row of the mask = (radius-1)/8 + 1
 	DEC	R0
 	ASR	R0
 	ASR	R0
 	ASR	R0
 	INC	R0
-	MOV	R0, K12052
-	CLR	R0
-K34034: ADD	K12052, R0
+	MOV	R0, K12052		; set PixScratch = bytes/row
+	CLR	R0			; total mask buffer size
+K34034: ADD	K12052, R0		; accumulate rows*bytes-per-row
 	SOB	R1, K34034
-K34042: CLRB	(R3)+
+K34042: CLRB	(R3)+			; zero-fill the mask buffer
 	SOB	R0, K34042
-	MOV	(SP)+, R1
+	MOV	(SP)+, R1		; restore radius
 	MOV	R1, R0
-	ASR	R0
-	CALL	K34304			; BrushRadiusLookup
-	MOV	R0, K25516
-	MOV	(SP)+, R3
+	ASR	R0			; radius/2
+	CALL	K34304			; BrushRadiusLookup -> max squared distance
+	MOV	R0, K25516		; set PixAttrByte = radius threshold
+	MOV	(SP)+, R3		; restore mask buffer addr
 K34066:	MOV	R5, -(SP)
 	MOV	R1, -(SP)
 	MOV	R3, -(SP)
@@ -3224,6 +3240,7 @@ K34160: CALL	K34304			; BrushRadiusLookup
 ; Helper for the brush rasterizer: advances the scratch-buffer pointer by a row
 ; offset and returns the _VMasks single-bit mask (K15070) for the current column,
 ; used inside K34006's inner fill loop.
+; (l9182 in 011-paint.asm)
 K34234: MOV	K12052, R5
 	MOV	K25524, R0
 	ASR	R0
@@ -3243,6 +3260,7 @@ K34252: ADD	K25520, R0
 ; Looks up a squared-distance approximation from the table at K34316, indexed by
 ; R0 -- used by the brush-shape rasterizer K34006 to test whether a pixel lies
 ; inside the brush radius.
+; (l91a2 in 011-paint.asm)
 K34304: CLR	R3
 	BISB	K34316(R0), R3
 	MOV	R3, R0
@@ -3691,7 +3709,7 @@ K37546: CALL	K37210			; RefreshPrintFlags
 ; Print option checkbox X/Y offset tables
 K37600: .BYTE	007,007,007,000,003,006,003,000,005,002,005,000,006,000,006,000
 K37620: .BYTE	004,002,001,000,002,000,002,000,000,002,000,000,000,000,000,000
-K37640: .WORD	000113			; ??
+K37640: .WORD	000113			; unused (no references found anywhere in the source)
 ;
 ; Subroutine ComputePrintPitch
 ; Computes and stores the screen-dump printer pitch: given a magnification step
@@ -3768,37 +3786,37 @@ K40112: MOVB	K25521, R0		; get _Attrs2
 	MOV	R0, K40302
 	CALL	K37210			; RefreshPrintFlags
 ; Subroutine RedrawPrintOrientFlag (entry point)
-K40132: MOV	K40302, R0
-	MOV	#000160, R3
+K40132: MOV	K40302, R0		; get print-orientation setting (0/1/2)
+	MOV	#000160, R3		; checkbox 1 position
 	MOV	#000174, R4
-	MOV	R0, -(SP)
-	BNE	K40160
+	MOV	R0, -(SP)		; save setting
+	BNE	K40160			; not option 0 =>
 	CLR	R0
-	DEC	R0
+	DEC	R0			; R0 = -1 (checked)
 	BR	K40162
-K40160: CLR	R0
-K40162: CALL	K17070			; PrtFlag_V
-	MOV	(SP)+, R0
-	MOV	#000071, R3
+K40160: CLR	R0			; R0 = 0 (unchecked)
+K40162: CALL	K17070			; PrtFlag_V: redraw checkbox 1
+	MOV	(SP)+, R0		; restore setting
+	MOV	#000071, R3		; checkbox 2 position
 	MOV	#000206, R4
-	DEC	R0
+	DEC	R0			; setting - 1
 	MOV	R0, -(SP)
-	BNE	K40214
+	BNE	K40214			; not option 1 =>
 	CLR	R0
-	DEC	R0
+	DEC	R0			; R0 = -1 (checked)
 	BR	K40216
-K40214: CLR	R0
-K40216: CALL	K17070			; PrtFlag_V
-	MOV	(SP)+, R0
-	MOV	#000160, R3
+K40214: CLR	R0			; R0 = 0 (unchecked)
+K40216: CALL	K17070			; PrtFlag_V: redraw checkbox 2
+	MOV	(SP)+, R0		; restore setting - 1
+	MOV	#000160, R3		; checkbox 3 position
 	MOV	#000220, R4
-	DEC	R0
-	BNE	K40246
+	DEC	R0			; setting - 2
+	BNE	K40246			; not option 2 =>
 	CLR	R0
-	DEC	R0
+	DEC	R0			; R0 = -1 (checked)
 	BR	K40250
-K40246: CLR	R0
-K40250: JMP	K17070			; PrtFlag_V
+K40246: CLR	R0			; R0 = 0 (unchecked)
+K40250: JMP	K17070			; PrtFlag_V: redraw checkbox 3
 ;
 ; Selected "Перевод строки" in menu "Печать"
 K40254: COMB	K40304			; инвертируем флаг "Перевод строки"
@@ -3834,6 +3852,7 @@ K40310: CLR	K24452			; set "file" flag
 ; Text-entry line editor for filenames: reads keystrokes via EMT 340 (.TTYIN),
 ; handles Backspace/Enter/printable chars, echoes each char via K40624, builds a
 ; 16-char buffer (K41510) -- used by FileOper's filename prompt.
+; (InputName in 012-file.asm)
 K40374: CLR	R5
 	MOV	#K41510, R2		; addr of 16. spaces string
 K40402: CMP	R5, #000016
@@ -3893,6 +3912,7 @@ K40576: TST	R5
 ; Draws one character cell during filename entry: clears an 8x8 pixel box then
 ; PixPrints the glyph for the given char code at the current cursor column,
 ; advancing X by 8.
+; (InputName in 012-file.asm)
 K40624: MOV	R2, -(SP)
 	MOV	R1, -(SP)
 	MOV	R0, -(SP)
@@ -4158,7 +4178,7 @@ K42322: JMP	K23660			; Show "Ошибка имени" error message
 K42326: .ASCII	/NONAME/
 ;
 ; Subroutine MakeAttrs
-; (MakeAttrs (006-attrs.asm))
+; (MakeAttrs in 006-attrs.asm)
 K42334::MOV	R1, -(SP)
 	MOV	R2, -(SP)
 	MOV	#000377, R1
@@ -4197,7 +4217,8 @@ K42470: MOV	R1, K17523		; set _Attrs1
 	MOV	(SP)+, R1
 	RETURN
 ;
-; BordSel: Выбран цвет бордюра
+; Subroutine BordSel: Выбран цвет бордюра
+; (BordSel in 006-attrs.asm)
 K42522: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	#000030, R1
@@ -4232,7 +4253,7 @@ K42664: MOV	K45744, R0		; get _Border
 	JMP	K63530			; MenuBack
 ;
 ; Subroutine SetBorder
-; (SetBorder (006-attrs.asm / 015-main.asm))
+; (SetBorder in 006-attrs.asm / 015-main.asm)
 K42704::BIC	#000007, @#157706	; clear border color
 	BIC	#177770, R0		; 0..7
 	BIS	R0, @#157706		; set border color
@@ -4246,7 +4267,8 @@ K42704::BIC	#000007, @#157706	; clear border color
 K42750: MOV	R0, #000000		;!!MUT-ARG!!
 	RETURN
 ;
-; Выбран цвет фона (Paper)
+; Subroutine PaperSel: Выбран цвет фона (Paper)
+; (PaperSel in 006-attrs.asm)
 K42756: MOV	K62374, R3		; get Mouse X
 	MOV	K62374, R4		; get Mouse X !!!ERROR!!!
 	MOV	#000030, R1
@@ -4276,7 +4298,8 @@ K43100: MOVB	K25525, K25524
 K43110: CALL	K63530			; MenuBack
 	JMP	K63530			; MenuBack
 ;
-; Выбран цвет точек (Ink)
+; Subroutine InkSel: Выбран цвет точек (Ink)
+; (InkSel in 006-attrs.asm)
 K43120: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	#000030, R1
@@ -4483,60 +4506,62 @@ K44522: .WORD	000010,000050,000330,000070
 	.WORD	000000
 	.WORD	177777
 ;
+; Subroutine BrightSel
+; (BrightSel in 006-attrs.asm)
 K44624: MOVB	K25521, R0		; get _Attrs2
 	BIC	#177400, R0		; keep lower byte
 	MOV	R0, K45746		; set _Bright
 	CALL	K44670			; BRIGHT_INIT
-	MOV	#177777, R0
+	MOV	#177777, R0		; short delay
 K44650: MOVB	K25525, K25524
 	SOB	R0, K44650
 	CALL	K63530			; MenuBack
 	JMP	K63530			; MenuBack
 ;
-; BRIGHT_INIT:
+; BRIGHT_INIT: refreshes the 3 Off/On/Toggle checkmarks and their checkboxes
 K44670: MOV	K45746, R0		; get _Bright
-	MOV	#K45154, R3
+	MOV	#K45154, R3		; "Off" menu item flags
 	BICB	#000002, (R3)
-	TST	R0
+	TST	R0			; setting == Off (0)?
 	BNE	K44714
-	BISB	#000002, (R3)
-K44714: MOV	#K45204, R3
+	BISB	#000002, (R3)		; mark this item pressed
+K44714: MOV	#K45204, R3		; "On" menu item flags
 	BICB	#000002, (R3)
-	DEC	R0
+	DEC	R0			; setting == On (1)?
 	BNE	K44734
-	BISB	#000002, (R3)
-K44734: MOV	#K45234, R3
+	BISB	#000002, (R3)		; mark this item pressed
+K44734: MOV	#K45234, R3		; "Toggle" menu item flags
 	BICB	#000002, (R3)
-	DEC	R0
+	DEC	R0			; setting == Toggle (2)?
 	BNE	K44754
-	BISB	#000002, (R3)
+	BISB	#000002, (R3)		; mark this item pressed
 K44754: MOV	K45746, R0		; get _Bright
-	MOV	#000172, R3
+	MOV	#000172, R3		; checkbox 1 position
 	MOV	#000101, R4
-	MOV	R0, -(SP)
-	BEQ	K45000
-	CLR	R0
+	MOV	R0, -(SP)		; save setting
+	BEQ	K45000			; Off =>
+	CLR	R0			; unchecked
 	BR	K45002
-K45000: MOV	SP, R0
+K45000: MOV	SP, R0			; nonzero -> checked
 K45002: CALL	K17070			; PrtFlag_V
-	MOV	(SP)+, R0
-	MOV	#000172, R3
+	MOV	(SP)+, R0		; restore setting
+	MOV	#000172, R3		; checkbox 2 position
 	MOV	#000115, R4
-	DEC	R0
+	DEC	R0			; setting - 1 (On)?
 	MOV	R0, -(SP)
 	BEQ	K45032
-	CLR	R0
+	CLR	R0			; unchecked
 	BR	K45034
-K45032: MOV	SP, R0
+K45032: MOV	SP, R0			; checked
 K45034: CALL	K17070			; PrtFlag_V
-	MOV	(SP)+, R0
-	MOV	#000172, R3
+	MOV	(SP)+, R0		; restore setting - 1
+	MOV	#000172, R3		; checkbox 3 position
 	MOV	#000131, R4
-	DEC	R0
+	DEC	R0			; setting - 2 (Toggle)?
 	BEQ	K45062
-	CLR	R0
+	CLR	R0			; unchecked
 	BR	K45064
-K45062: MOV	SP, R0
+K45062: MOV	SP, R0			; checked
 K45064: JMP	K17070			; PrtFlag_V
 
 ; BRIGHT_MENU: Selected "Яркость" in menu "Аттрибуты"
@@ -4564,6 +4589,8 @@ K45234:	.BYTE	200,211
 	.WORD	000000
 	.WORD	177777
 ;
+; Subroutine FlashSel
+; (FlashSel in 006-attrs.asm)
 K45272: MOVB	K25521, R0		; get _Attrs2
 	BIC	#177400, R0		; keep lower byte
 	MOV	R0, K21246		; set _Flash
@@ -4655,14 +4682,15 @@ K45750: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
-	MOV	K10732, R0		; get Input method ??
+	MOV	K10732, R0		; get Input method (always 0)
 	CMPB	R0, #000004
 ;NOTE: Some code cut out here
 	RETURN
 ;
-; Subroutine ScanKey: Read input and set ScanCode (9 usages)
-; (ScanKey (017-menu.asm))
-K45776::MOV	K10732, R0		; Input method ??
+; Subroutine ScanKey (9 usages)
+; Read input and set ScanCode
+; (ScanKey in 017-menu.asm)
+K45776::MOV	K10732, R0		; Input method (always 0)
 	ASL	R0
 	JMP	@K46010(R0)		; call input method handler
 ;
@@ -4704,7 +4732,7 @@ K46144: CMPB	R0, #000077		; '?' = VT52 keypad-mode prefix (ESC ?x)
 	BNE	K46174
 	MOV	#000020, K46222		; set ScanCode = selection
 	RETURN
-K46174: CMPB	R0, #000160		; ??
+K46174: CMPB	R0, #000160		; 'p' = VT52 keypad 0 -> recenter mouse to menu center (see K62216)
 	BNE	K46034
 	MOV	#000200, K46222		; set ScanCode
 	RETURN
@@ -4718,30 +4746,30 @@ K46220: RETURN				; Input method 4
 K46222::.WORD	0			; ScanCode: movement, selection
 ;
 ; Subroutine DrawLine
-; (DrawLine (017-menu.asm))
-K46224: MOV	R3, K12042
-	MOV	R4, K12044
-	MOV	R2, R0
+; (DrawLine in 017-menu.asm)
+K46224: MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
+	MOV	R2, R0			; dy = R2 - R4
 	SUB	R4, R0
 	BEQ	K46260
-	MOV	#000001, R2
+	MOV	#000001, R2		; Y step = +1
 	BHIS	K46262
-	MOV	#177777, R2
-	NEG	R0
+	MOV	#177777, R2		; Y step = -1
+	NEG	R0			; dy = abs(dy)
 	BR	K46262
-K46260: MOV	R0, R2
-K46262: MOV	R0, R4
-	MOV	R1, R0
+K46260: MOV	R0, R2			; dy == 0, Y step = 0
+K46262: MOV	R0, R4			; R4 = abs(dy)
+	MOV	R1, R0			; dx = R1 - R3
 	SUB	R3, R0
 	BEQ	K46310
-	MOV	#000001, R1
+	MOV	#000001, R1		; X step = +1
 	BHIS	K46312
-	MOV	#177777, R1
-	NEG	R0
+	MOV	#177777, R1		; X step = -1
+	NEG	R0			; dx = abs(dx)
 	BR	K46312
-K46310: MOV	R0, R1
-K46312: MOV	R0, R3
-	BIS	R4, R0
+K46310: MOV	R0, R1			; dx == 0, X step = 0
+K46312: MOV	R0, R3			; R3 = abs(dx)
+	BIS	R4, R0			; both zero (single point)?
 	BNE	K46322
 	RETURN
 K46322: MOV	R1, -(SP)
@@ -4768,8 +4796,8 @@ K46370: SUB	R4, R0
 	BEQ	K46410
 	CALL	K46522			; DrawLineSavePos
 K46410: CALL	K25244			; EXX
-	MOV	K12042, R3
-	MOV	K12044, R4
+	MOV	K12042, R3		; get PixXc
+	MOV	K12044, R4		; get PixYc
 	MOV	#000001, R2
 	CALL	K15464			; _VrtLine
 	MOV	(SP)+, R2
@@ -4778,8 +4806,8 @@ K46410: CALL	K25244			; EXX
 	MOV	R2, -(SP)
 	ADD	R2, R4
 	ADD	R1, R3
-	MOV	R3, K12042
-	MOV	R4, K12044
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 	CALL	K25354			; PixPlotReentryGuard
 	CALL	K25244			; EXX
 	SOB	R5, K46354
@@ -4799,8 +4827,8 @@ K46522: MOV	R1, -(SP)
 	CALL	K25244			; EXX
 	MOV	(SP)+, R2
 	MOV	(SP)+, R1
-	MOV	K12042, R3
-	MOV	K12044, R4
+	MOV	K12042, R3		; get PixXc
+	MOV	K12044, R4		; get PixYc
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R0, K46724
@@ -4811,7 +4839,7 @@ K46522: MOV	R1, -(SP)
 	DEC	R0
 	BEQ	K46616
 	SUB	R1, R3
-	MOV	R3, K12042
+	MOV	R3, K12042		; set PixXc
 	INC	R3
 	CALL	K15670			; _HrzLine
 	MOV	(SP)+, R4
@@ -4830,7 +4858,7 @@ K46624: MOV	R2, R0
 	CALL	K15464			; _VrtLine
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
-	MOV	R4, K12044
+	MOV	R4, K12044		; set PixYc
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	BR	K46714
@@ -4839,8 +4867,8 @@ K46674: MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	ADD	R2, R4
 	ADD	R1, R3
-	MOV	R3, K12042
-	MOV	R4, K12044
+	MOV	R3, K12042		; set PixXc
+	MOV	R4, K12044		; set PixYc
 K46714: CALL	K25244			; EXX
 	RETURN
 ;
@@ -4939,7 +4967,7 @@ K47376: NOP
 	JMP	K47016
 ;
 ; Subroutine ShapElast
-; (ShapElast (007-shapes.asm))
+; (ShapElast in 007-shapes.asm)
 K47442: TST	K52166			; check ElasticFl
 	BNE	K47452
 	RETURN
@@ -4967,10 +4995,10 @@ K47552: MOV	(SP)+, R0
 	RETURN
 ;
 ; TabShapExe:	Point   Line    ContLn  Rectang Triangl Circle  Rays
-K47556: .WORD	K47644, K47670, K47722, K50044, K50340, K51060, K50654
+K47556: .WORD	K47644, K47670, K47722, K50044, K50340, K51060, K50654	; TabShapExe
 ;
 ; Subroutine SnapXY
-; (SnapXY (007-shapes.asm))
+; (SnapXY in 007-shapes.asm)
 K47574: TST	K52170			; check SnapHrzFl
 	BEQ	K47606
 	BIC	#000007, R3
@@ -5058,7 +5086,7 @@ K50072: MOV	K52202, R3		; get ShapeBegX
 	JMP	K47624			; => ResetShapeAnchor
 ;
 ; Subroutine ShapesRest2
-; (ShapesRest2 (007-shapes.asm))
+; (ShapesRest2 in 007-shapes.asm)
 K50122: MOV	K52202, R3		; get ShapeBegX
 	MOV	K52204, R4		; get ShapeBegY
 	MOV	K52176, R1		; get ShapesX
@@ -5211,7 +5239,7 @@ K50760: MOV	K52176, K52206		; ShapesX -> ShapeEndX
 	BR	K50776			; ShapDrawLn
 ;
 ; Subroutine ShapDrawLn
-; (ShapDrawLn (007-shapes.asm))
+; (ShapDrawLn in 007-shapes.asm)
 K50776: MOV	K52176, R3		; get ShapesX
 	MOV	K52200, R4		; get ShapesY
 	MOV	K52202, R1		; get ShapeBegX
@@ -5259,34 +5287,34 @@ K51144: CALL	K51154			; _Circle3
 K51154: MOV	K52202, R1		; get ShapeBegX
 	MOV	K52204, R2		; get ShapeBegY
 	MOV	K52176, R3		; get ShapesX
-	MOV	K52200, R3		; get ShapesY
+	MOV	K52200, R3		; get ShapesY (overwrites R3, see next line)
 	MTPS	#000340			; disable interrupts
 	MOV	#000340, K52212		; set CirclD2
 	MOV	#000000, K52214		; set CirclD4
-	MOV	R3, R0
+	MOV	R3, R0			; dx = ShapesY - ShapeBegX (see above)
 	SUB	R1, R0
 	BHIS	K51224
 	NEG	R0
-K51224: MOV	R0, R3
-	MOV	R4, R0
+K51224: MOV	R0, R3			; R3 = abs(dx)
+	MOV	R4, R0			; dy = ShapesEndY - ShapeBegY
 	SUB	R2, R0
 	BHIS	K51236
 	NEG	R0
-K51236: MOV	R0, R4
-	BIS	R3, R0
+K51236: MOV	R0, R4			; R4 = abs(dy)
+	BIS	R3, R0			; both zero (no size)?
 	BNE	K51252
 	MTPS	#000000			; enable interrupts
 	RETURN
-K51252: MOV	R1, -(SP)
-	MOV	R2, -(SP)
-	MOV	R3, -(SP)
+K51252: MOV	R1, -(SP)		; save ShapeBegX
+	MOV	R2, -(SP)		; save ShapeBegY
+	MOV	R3, -(SP)		; save abs(dx)
 	MOV	R3, R0
-	CALL	K51422
+	CALL	K51422			; scale abs(dx)
 	MOV	R3, (SP)
 	MOV	R4, R0
-	CALL	K51422
+	CALL	K51422			; scale abs(dy)
 	MOV	(SP)+, R4
-	ADD	R3, R4
+	ADD	R3, R4			; combined scaled radius
 	TST	R2
 	BEQ	K51310
 	RETURN
@@ -5706,7 +5734,7 @@ K54114: CALL	K54052			; WindSelCleanup
 ; window drawn yet" -- window-define reset helper, analogous in role to K47624
 ; for shapes.
 K54134::MOV	#000010, R0
-	MOV	#K56136, R3
+	MOV	#K56136, R3		; WindBaseX address
 K54144: MOV	#177777, (R3)+
 	SOB	R0, K54144
 	RETURN
@@ -5894,10 +5922,10 @@ K55110: BISB	#000002, @(R3)+
 	BEQ	K55152
 	BICB	#000002, 055424
 	BR	K55254
-K55152: MOV	K60472, R3
-	MOV	K60474, R4
-	MOV	K60476, R1
-	MOV	K60500, R2
+K55152: MOV	K60472, R3		; get BoxBegX
+	MOV	K60474, R4		; get BoxBegY
+	MOV	K60476, R1		; get BoxEndX
+	MOV	K60500, R2		; get BoxEndY
 	MOV	R4, R0
 	INC	R0
 	BEQ	K55254
@@ -6155,19 +6183,19 @@ K56750: JMP	K60122
 ; line plotter; otherwise clips against the confirmed bounds directly. Shared by
 ; all the edge-draw wrappers.
 K56754: TST	K56106		; check WindDraggingFl
-	BEQ	K57232
-	MOV	R5, K25520
+	BEQ	K57232			; not dragging => clip against confirmed bounds
+	MOV	R5, K25520		; set PixByte = attr/direction flag word
 	MOV	K56116, R3		; get WindBegX
 	MOV	K56120, R4		; get WindBegY
 	MOV	R4, R0
-	TST	R2
+	TST	R2			; edge length sign
 	BMI	K57032
 	ADD	R2, R0
 	MOV	K56122, R1		; get WindEndX
 	MOV	K56124, R2		; get WindEndY
 	BHIS	K57022
 	RETURN
-K57022: CMP	R0, #000310
+K57022: CMP	R0, #000310		; past screen bottom (310. rows)?
 	BLO	K57052
 	RETURN
 K57032: ADD	R2, R0
@@ -6176,50 +6204,50 @@ K57032: ADD	R2, R0
 	BLO	K57052
 	ADD	R0, R2
 	CLR	R0
-K57052: MOV	R0, R4
+K57052: MOV	R0, R4			; clipped start row
 	ADD	R2, R0
 	BLO	K57066
 	CMP	R0, #000310
 	BLO	K57076
-K57066: SUB	#000310, R0
+K57066: SUB	#000310, R0		; clip length to screen bottom
 	NEG	R0
 	ADD	R0, R2
-K57076: ADD	K25520, R3
+K57076: ADD	K25520, R3		; X + direction offset
 	MOV	R3, R0
-	BIT	#100000, R5
+	BIT	#100000, R5		; check sign bit of the direction/attr word
 	BEQ	K57124
 	MFPS	-(SP)
 	MOV	#000001, R0
 	XOR	R0, (SP)
 	MTPS	(SP)+
-K57124:	MFPS	-(SP)
+K57124:	MFPS	-(SP)			; save processor status (carry from the BIT above)
 	MOV	R1, -(SP)
 	MOV	R2, -(SP)
 	MOV	K56116, R0		; get WindBegX
 	MOV	K56122, R1		; get WindEndX
 	MOV	K56124, R2		; get WindEndY
-	ADD	R0, R1
+	ADD	R0, R1			; right edge X
 	DEC	R1
 	ADD	K25520, R1
-	MOV	R4, R2
-	BIT	#100000, R5
+	MOV	R4, R2			; clipped row
+	BIT	#100000, R5		; check sign bit again for the other endpoint
 	BEQ	K57200
 	MFPS	-(SP)
 	MOV	#000001, R0
 	XOR	R0, (SP)
 	MTPS	(SP)+
-K57200: MOV	(SP)+, R5
-	MOV	(SP)+, K25522
+K57200: MOV	(SP)+, R5		; restore R5
+	MOV	(SP)+, K25522		; restore saved processor status
 	BHIS	K57220
-	MOV	R4, R2
+	MOV	R4, R2			; swap endpoints
 	MOV	R3, R1
-	MTPS	(SP)+
+	MTPS	(SP)+			; restore first saved status
 	BR	K57230
-K57220: MTPS	(SP)+
+K57220: MTPS	(SP)+			; restore first saved status
 	BHIS	K57230
-	MOV	R2, R4
+	MOV	R2, R4			; swap endpoints
 	MOV	R1, R3
-K57230: BR	K57320
+K57230: BR	K57320			; continue into the shared dashed-line loop
 K57232: MOV	R4, R0
 	INC	R0
 	BNE	K57242
@@ -6264,15 +6292,15 @@ K57350: CALL	K60040			; GetMasks
 	RETURN
 K57362: MOV	#000030, R4
 	NEG	R0
-	ADD	R0, R5
+	ADD	R0, R5			; clamp segment length to screen bottom
 K57372:	MOV	R4, R0
-	ADD	R5, R0
-	SUB	#000310, R0
+	ADD	R5, R0			; end row
+	SUB	#000310, R0		; past screen bottom (310. rows)?
 	BLO	K57410
 	NEG	R0
-	ADD	R0, R5
-K57410: MOV	R4, R2
-	MOV	R5, R0
+	ADD	R0, R5			; clip length to fit
+K57410: MOV	R4, R2			; final row
+	MOV	R5, R0			; final clipped length
 	TST	R0
 	RETURN
 ;
@@ -6285,10 +6313,10 @@ K57420: MOV	K56136, R3		; get WindBaseX
 	MOV	K56142, R1		; get WindBaseW
 	MOV	K56144, R2		; get WindBaseH
 	TST	K56106		; check WindDraggingFl
-	BEQ	K57520
+	BEQ	K57520			; not dragging => clip against confirmed bounds
 	MOV	K56126, R5		; get WindDragDeltaX
 	MOV	K56130, R2		; get WindDragDeltaY
-	BR	K57622
+	BR	K57622			; draw against the live drag position
 ;
 ; Subroutine WindVrtEdgeLive
 ; Same as K57420 but sourcing the live W_XCoord bounds -- draws the other
@@ -6333,11 +6361,11 @@ K57606: CALL	K60040			; GetMasks
 	BLO	K57620
 	CALL	K15100			; DashHrzRun
 K57620: RETURN
-K57622: MOV	R5, K25520
+K57622: MOV	R5, K25520		; set PixByte = attr/direction flag word
 	MOV	K56122, R3		; get WindEndX
 	MOV	K56124, R4		; get WindEndY
 	MOV	R4, R0
-	DEC	R0
+	DEC	R0			; single-row window?
 	BNE	K57646
 	RETURN
 K57646: MOV	K56116, R3		; get WindBegX
@@ -6397,6 +6425,7 @@ K60016: MOV	K30532, R0
 	RETURN
 ;
 ; Subroutine GetMasks (9 usages)
+; (GetMasks in 009-windows.asm)
 K60040: MOV	#000003, R0
 	SUB	K30532, R0
 	ASL	R0
@@ -6442,8 +6471,8 @@ K60164: MOV	K56136, -(SP)
 	MOV	K60474, K56140
 	MOV	K60472, K56142
 	MOV	K60474, K56144
-	MOV	K60476, R1
-	MOV	K60500, R2
+	MOV	K60476, R1		; get BoxEndX
+	MOV	K60500, R2		; get BoxEndY
 	DEC	R1
 	DEC	R2
 	ADD	R1, K56142
@@ -6462,10 +6491,10 @@ K60164: MOV	K56136, -(SP)
 K60306: TST	K56114		; check BoxSelectFl
 	BNE	K60316
 	RETURN
-K60316: MOV	K60472, R3
-	MOV	K60474, R4
-	MOV	K60476, R1
-	MOV	K60500, R2
+K60316: MOV	K60472, R3		; get BoxBegX
+	MOV	K60474, R4		; get BoxBegY
+	MOV	K60476, R1		; get BoxEndX
+	MOV	K60500, R2		; get BoxEndY
 	MOV	R3, K56146		; set W_XCoord
 	MOV	R4, K56150		; set W_XSize
 	DEC	R2
@@ -6508,10 +6537,10 @@ K60446: INC	R1
 	MOV	R2, K56124		; set WindEndY
 	RETURN
 ;
-K60472::.WORD	177777
-K60474::.WORD	177777
-K60476::.WORD	177777
-K60500::.WORD	177777
+K60472::.WORD	177777			; BoxBegX
+K60474::.WORD	177777			; BoxBegY
+K60476::.WORD	177777			; BoxEndX
+K60500::.WORD	177777			; BoxEndY
 K60502::.BLKW	9.
 
 ; FILL_MENU: Выпадающее меню "Заливка" в главном меню
@@ -6627,7 +6656,7 @@ K61416: TSTB	K62366		; check EditSavedAttrs2
 	BNE	K61430
 	CALL	K61700			; MenuBeep
 K61430: MOV	K62372, R3		; get _Jp_Addr
-	BEQ	<K61440+2>		; ??
+	BEQ	<K61440+2>		; if no jump-address set, skip the PutCursor call entirely
 	CALL	(R3)
 K61440: CALL	K12054			; PutCursor
 	MOVB	K62366, R1		; get EditSavedAttrs2
@@ -6686,18 +6715,19 @@ K61652: MOV	#K61530, R3		; => EDIT8
 ; _JPHL_: NOT USED
 K61666: JMP	(R3)
 ;
-; Subroutine cp_ArrY: Проверка, находится ли курсор мыши в меню
-; (cp_ArrY (017-menu.asm))
+; Subroutine cp_ArrY
+; Check if the mouse cursor is in the menu
+; (cp_ArrY in 017-menu.asm)
 K61670::CMP	#000030, K62376		; check Mouse Y agains 24.
 	RETURN
 ;
 ; Subroutine MenuBeep
-; (MenuBeep (017-menu.asm) -- stub in both, sound not implemented)
+; (MenuBeep in 017-menu.asm) -- stub in both, sound not implemented
 K61700::MOV	#000007, R0		; supposed to be some sound, but not implemented
 	RETURN
 ;
 ; Subroutine cp_ArrFire
-; (cp_ArrFire (017-menu.asm))
+; (cp_ArrFire in 017-menu.asm)
 K61706::MOV	K62400, R5		; get CurCursAddr
 	INC	R5
 	INC	R5
@@ -6714,7 +6744,8 @@ K61746: NOP
 	SOB	R1, K61746
 	RETURN
 ;
-; Subroutine: PassFire ?? Clean input buffer
+; Subroutine PassFire: Clean input buffer
+; (PassFire in 017-menu.asm)
 K61754::EMT	340			; .TTYINR
 	BHIS	.-2			; wait until no symbols
 	RETURN
@@ -6729,7 +6760,7 @@ K61762: MOV	K62410, K62404
 ;
 ; Subroutine SetCursAddr
 ; R0 = cursor number
-; (SetCursAddr (017-menu.asm))
+; (SetCursAddr in 017-menu.asm)
 K62000::MOV	R0, K62362		; save cursor number
 	ASL	R0
 	ADD	#K06122, R0		; + TabCursor
@@ -6739,7 +6770,8 @@ K62000::MOV	R0, K62362		; save cursor number
 	MOV	#000017, K62410		; 15.
 	BR	K61762			; => ResetMouseAccel
 ;
-; Subroutine: Process ScanCode into X/Y change ?? (10 usages)
+; Subroutine ProcessScanCode (10 usages)
+; Process ScanCode into X/Y change
 K62036::CMP	K46222, K62412
 	BEQ	K62052
 	CALL	K61762			; ResetMouseAccel
@@ -6747,7 +6779,7 @@ K62052: MOV	K46222, R0		; get ScanCode
 	MOV	R0, K62412		; set PrevScanCode
 	BNE	K62066			; have any input?
 	RETURN				; no => return
-K62066: MOV	#K62404, R3
+K62066: MOV	#K62404, R3		; MouseAccelCounter address
 	DEC	(R3)
 	BPL	K62122
 	MOV	K62410, R0		; get MouseAccelLimit
@@ -6776,7 +6808,7 @@ K62172: BIT	#000004, R0		; up?
 K62204: BIT	#000010, R0		; down?
 	BEQ	K62216			; no =>
 	CALL	K62344			; _IncYc - Move down
-K62216: BIT	#000200, R0		; ??
+K62216: BIT	#000200, R0		; recenter mouse to menu center? (bit7 of ScanCode)
 	BEQ	K62234			; no =>
 	MOV	#000240, R3		; 160. menu center
 	MOV	#000014, R4		; 12.
@@ -6837,7 +6869,7 @@ K62410: .WORD	15.			; MouseAccelLimit (10. or 15.)
 K62412: .WORD	0			; PrevScanCode (ldb80)
 ;
 ; Subroutine MenuCheck
-; (MenuCheck (017-menu.asm))
+; (MenuCheck in 017-menu.asm)
 K62414::MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), K65300		; set Menu_Xb
 	MOV	000002(R5), K65302	; set Menu_Yb
@@ -6889,7 +6921,7 @@ K62634: CALL	K65242			; M_SkipChr: Skip menu item character
 	BR	K62436			; => continue menu items loop
 ;
 ; Subroutine MenuSel
-; (MenuSel (017-menu.asm))
+; (MenuSel in 017-menu.asm)
 K62652::MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), R3		; get menu X
 	MOV	000002(R5), R4		; get menu Y
@@ -6978,7 +7010,7 @@ K63270: BITB	#000040, 000010(R5)
 K63304: RETURN
 ;
 ; Subroutine MenuFlash
-; (MenuFlash (017-menu.asm))
+; (MenuFlash in 017-menu.asm)
 K63306: BITB	#000100, 000012(R5)
 	BEQ	K63342
 	BITB	#000001, 000012(R5)
@@ -6994,7 +7026,7 @@ K63356: BICB	#000001, 000012(R5)
 ;
 ; Subroutine MenuExe
 ; Returns: R3 = menu item handler addr or 0
-; (MenuExe (017-menu.asm))
+; (MenuExe in 017-menu.asm)
 K63366: MOV	K65276, R5		; get Menu_Addr
 	MOV	(R5), R3		; get menu X
 	MOV	000002(R5), R4		; get menu Y
@@ -7029,7 +7061,7 @@ K63524: CLR	R3
 	RETURN
 ;
 ; Subroutine MenuBack (26 usages)
-; (MenuBack (017-menu.asm))
+; (MenuBack in 017-menu.asm)
 K63530::MOV	K65276, R5		; get Menu_Addr
 	MOV	000012(R5), R3		; get exit address
 	BNE	K63544
@@ -7037,9 +7069,10 @@ K63530::MOV	K65276, R5		; get Menu_Addr
 K63544: MOV	R3, K65276		; set Menu_Addr
 	JMP	K13454
 ;
-; Subroutine MenuRange: Проверка, находится ли курсор в площади окна меню
-; Return: Z = курсор за пределами окна, NZ = курсор в меню
-; (MenuRange (017-menu.asm))
+; Subroutine MenuRange
+; Check if the cursor is in the menu window square
+; Return: Z = cursor is outside the window, NZ = cursor is inside the menu
+; (MenuRange in 017-menu.asm)
 K63554::MOV	K62374, R0		; get Mouse X
 	SUB	R3, R0
 	DEC	R0
@@ -7068,7 +7101,8 @@ K63640: INC	R2
 	CLR	R0
 	RETURN
 ;
-; Subroutine MenuOpen: Отрисовка и подготовка меню
+; Subroutine MenuOpen
+; Draw and prepare the menu
 ; R5 = menu address; menu has 14. bytes header:
 ; (Menu + 0.) word = X
 ; (Menu + 2.) word = Y
@@ -7093,7 +7127,7 @@ K63640: INC	R2
 ;   bit6 = 1: frame
 ;   bit5 = 1: invert item
 ; (MenuItem + 12.) word = menu item handler addr or 0
-; (MenuOpen (017-menu.asm))
+; (MenuOpen in 017-menu.asm)
 K63646::MOV	R5, K65276		; set Menu_Addr
 	MOV	(R5), R3		; get word (Menu + 0.) = X
 	MOV	000002(R5), R4		; get word (Menu + 2.) = Y
@@ -7179,8 +7213,9 @@ K64246: TST	000014(R5)		; check word (Menu + 12.) = init
 	RETURN
 K64256: JMP	@000014(R5)		; => init handler
 ;
-; Subroutine MenuPrint: Печать элементов меню, строки
-; (MenuPrint (017-menu.asm))
+; Subroutine MenuPrint
+; Print menu elements, strings
+; (MenuPrint in 017-menu.asm)
 K64262: MOV	K65276, R0		; get Menu_Addr
 	CLR	K17522
 	BISB	000011(R0), K17522
@@ -7333,45 +7368,46 @@ K65106: MOV	R2, K17522		; set _Attrs0
 	JMP	K64304			; MenuPrt1
 ;
 ; Subroutine M_LnSize
-; (M_LnSize (017-menu.asm))
-K65116: MOV	R5, -(SP)
-	MOV	R3, -(SP)
-	MOV	R1, -(SP)
-	CLR	R0
-K65126: MOVB	(R5), R1
-	BEQ	K65216
+; (M_LnSize in 017-menu.asm)
+K65116: MOV	R5, -(SP)		; save R5
+	MOV	R3, -(SP)		; save R3
+	MOV	R1, -(SP)		; save R1
+	CLR	R0			; running width total
+K65126: MOVB	(R5), R1		; get char
+	BEQ	K65216			; end of string =>
 	CMPB	R1, #000377
-	BEQ	K65216
+	BEQ	K65216			; end marker =>
 	CMPB	#000277, R1
-	BHIS	K65154
-	MOV	#000007, R3
+	BHIS	K65154			; printable char =>
+	MOV	#000007, R3		; fixed width for this control code
 	BR	K65210
-K65154: BICB	#177600, R1
+K65154: BICB	#177600, R1		; drop high bits
 	CMPB	R1, #000030
-	BLO	K65226
+	BLO	K65226			; another control code, no width =>
 	SUB	#000040, R1
 	BHIS	K65202
-	MOV	#000010, R3
+	MOV	#000010, R3		; fixed width for this control code
 	BR	K65210
 K65202: CLR	R3
 	BISB	K15264(R1), R3		; TabChrSz
-K65210: ADD	R3, R0
-	INC	R5
+K65210: ADD	R3, R0			; accumulate width
+	INC	R5			; next char
 	BR	K65126
-K65216: MOV	(SP)+, R1
-	MOV	(SP)+, R3
-	MOV	(SP)+, R5
+K65216: MOV	(SP)+, R1		; restore R1
+	MOV	(SP)+, R3		; restore R3
+	MOV	(SP)+, R5		; restore R5
 	RETURN
-K65226: INC	R5
+K65226: INC	R5			; skip control-code byte
 	CMPB	R1, #000027
 	BNE	K65126
-	INC	R5
+	INC	R5			; skip its argument byte too
 	BR	K65126
 ;
-; Subroutine M_SkipChr: Skip menu item character
+; Subroutine M_SkipChr
+; Skip menu item character
 ; R5 = addr in menu item string
 ; Returns: R0 = current character, Z = end of sequence, R5 incremented to next character
-; (M_SkipChr (017-menu.asm))
+; (M_SkipChr in 017-menu.asm)
 K65242: MOVB	(R5)+, R0		; get char
 	BNE	K65250
 	RETURN
@@ -7404,7 +7440,7 @@ K65306: MTPS	#000340			; disable interrupts
 	MTPS	#000000			; enable interrupts
 	RETURN
 ;
-; Subroutine: Send to printer ?? (15 usages)
+; Subroutine SendToPrinter (15 usages)
 ; R0 = byte to send
 K65356::MTPS	#000340			; disable interrupts
 	MOV	R4, -(SP)
