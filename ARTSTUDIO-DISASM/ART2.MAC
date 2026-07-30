@@ -20,12 +20,12 @@ FILLSD::
 L65636: CLR	R0
 	BR	L65656
 ;
-L65642: CALL	L66110
+L65642: CALL	L66110			; TextureAddrCur
 	MOV	R5, K20350
 	MOV	#177777, R0
 L65656: MOV	R0, L66702
-	CALL	K54052
-	CALL	K26476
+	CALL	K54052			; WindSelCleanup
+	CALL	K26476			; ScreenPageAddr
 	MOV	#000003, R0
 	CLR	R3
 	MOV	#L66706, R2		; jump addr
@@ -63,10 +63,10 @@ L66020: ASL	R4
 	CMP	R0, R4
 	BEQ	L66074
 	MOV	R4, -(SP)
-	CALL	L66372
+	CALL	L66372			; DrawTextureSelFrame
 	MOV	(SP)+, R0
 	MOV	R0, L66704		; set TextureCur
-	CALL	L66372
+	CALL	L66372			; DrawTextureSelFrame
 	MOV	#177777, R0
 L66066: TST	(R1)
 	TST	(R1)
@@ -75,7 +75,8 @@ L66074: CALL	K63530			; MenuBack
 	CALL	K63530			; MenuBack
 L66104: JMP	@#L66104		;!!!MUT-ARG!!!
 ;
-; Subroutine ??
+; Subroutine TextureAddrCur: get address of current texture pattern (TextureAddr + (TextureCur-1)*8)
+; (ld1d2)
 L66110: MOV	L66704, R5		; get TextureCur
 	DEC	R5
 	ASL	R5
@@ -109,7 +110,7 @@ L66202: MOVB	(R3)+, (R2)+
 	MOV	000002(R5), R4		; get Y
 	MOV	000004(R5), R1		; get width
 	MOV	000006(R5), R2		; get height
-	CALL	K13264
+	CALL	K13264			; SaveMenuBackground
 	JMP	K63646			; MenuOpen
 ;
 L66252:	.ASCII	/экрана :/
@@ -127,7 +128,7 @@ L66310: MOV	R1, -(SP)
 	MOV	#000022, R1
 	MOV	#000022, R2
 	CALL	K17276			; PixBox
-	CALL	K17720
+	CALL	K17720			; PutTexturePreview
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	ADD	#000030, R3
@@ -138,7 +139,7 @@ L66310: MOV	R1, -(SP)
 	MOV	(SP)+, R1
 	SOB	R1, L66302
 	MOV	L66704, R0		; get TextureCur
-; Entry point
+; Subroutine DrawTextureSelFrame (entry point)
 L66372: DEC	R0
 	MOV	R0, R3
 	BIC	#177770, R3		; 0..7
@@ -178,7 +179,7 @@ L66554: .WORD	000017,000027,000272,000132, L65714
 ;
 ; Overlay call
 TEXEDA::
-L66574: CALL	L66110
+L66574: CALL	L66110			; TextureAddrCur
 	MOV	#000100, R4
 	MOV	#000230, R3
 	MOV	#000010, R1
@@ -194,20 +195,23 @@ L66624: CALL	K63530			; MenuBack
 ; Overlay call
 ; TEXED_INIT:
 TEXEDI::
-L66634: CALL	L66110
+L66634: CALL	L66110			; TextureAddrCur
 	MOV	#000100, R4
 	MOV	#000230, R3
 	MOV	#000010, R1
 	MOV	R1, R2
 	CALL	K14060			; PutLens
-L66662: CALL	L66110
+L66662: CALL	L66110			; TextureAddrCur
 	MOV	#000207, R4
 	MOV	#000257, R3
-	JMP	K17720
+	JMP	K17720			; => PutTexturePreview
 ;
 L66702: .WORD	000000
 L66704:	.WORD	000001			; TextureCur
 ;
+; Block L66706-L71172: mouse-driven fill/wash-texture drawing loop and its pixel-run
+; plotting helpers (interpolation, boundary clamping, ring-buffer of drawn segments).
+; Corresponds to Z80 block ld462-ld79d in 010-fill.asm, see docs/z80-crossref.md.
 L66706: MOV	K30532, R0
 	ASL	R0
 	ASL	R0
@@ -239,9 +243,9 @@ L67000: CALL	K42334			; MakeAttrs
 L67030: MOV	#000001, R0
 	CLR	R1
 	MOV	#000200, R2
-	CALL	L71110
+	CALL	L71110			; SegmentBufferStore
 	MTPS	#000340			; disable interrupts
-L67052: CALL	L67240
+L67052: CALL	L67240			; CheckBreakStub
 	BLO	L67064
 	JMP	L67212
 L67064: SUB	#000010, R5
@@ -264,24 +268,30 @@ L67146: MOV	R0, L71170
 	BIT	#000100, 000006(R5)
 	BEQ	L67172
 	MOV	#177777, R0
-L67172: CALL	L67244
+L67172: CALL	L67244			; PlotBrushRun
 	BR	L67052
 L67200: TST	L66702
 	BEQ	L67212
-L67206: CALL	K20032
+L67206: CALL	K20032			; CommitTextureRows
 ; Entry point
 L67212: MTPS	#000000			; enable interrupts
 	RETURN
-L67220: CALL	L66110
+L67220: CALL	L66110			; TextureAddrCur
 	MOV	R5, K20350
-	CALL	K54052
+	CALL	K54052			; WindSelCleanup
 	JMP	L67206
 ;
-; Subroutine ??
+; Subroutine CheckBreakStub
+; always returns carry set, so the L67052 loop's BLO never taken and
+; drawing exits after one pass; looks like a stub in place of Z80 CheckBreak
+; (010-fill.asm:259, which polled keyboard ports for the Break key)
 L67240: SEC
 	RETURN
 ;
-; Subroutine ??
+; Subroutine PlotBrushRun
+; plot one interpolated pixel run while dragging fill/texture brush,
+; tracking previous position in K12042/K12044 for line interpolation
+; (ld54e)
 L67244: MOV	R0, L71162
 	MOV	R3, K12042
 	MOV	R4, K12044
@@ -310,7 +320,7 @@ L67350: BIC	#177770, R0		; 0..7
 	BEQ	L67404
 L67364: MOV	#177777, R2
 L67370: MOV	R0, -(SP)
-	CALL	L70110
+	CALL	L70110			; LineStepFwd
 	MOV	(SP)+, R0
 	SOB	R0, L67370
 	CLR	R2
@@ -376,7 +386,7 @@ L67614: BNE	L67652
 	CLR	R2
 	NEG	R0
 	ADD	R0, R3
-	CALL	L71110
+	CALL	L71110			; SegmentBufferStore
 	MOV	(SP)+, R2
 	MOV	(SP)+, R1
 	MOV	(SP)+, R4
@@ -390,13 +400,13 @@ L67660:	MOVB	K25520, R0
 	MOV	R2, R0
 	DEC	R0
 	BEQ	L67726
-	CALL	L70510
+	CALL	L70510			; ScanColClamp
 	MOV	R3, K12042
 	MOV	R4, K12044
 	MOV	#000001, R2
 L67726: MOV	R3, -(SP)
 	CALL	K27752			; PixAddr0
-	CALL	K20406
+	CALL	K20406			; LensPlotSet
 	MOV	(SP)+, R3
 	SUB	#000010, R1
 	BHIS	L67752
@@ -408,8 +418,8 @@ L67756: MOV	(SP)+, R0
 	BNE	L70024
 	MOV	R2, R0
 	BEQ	L70004
-	CALL	L70510
-	CALL	L70602
+	CALL	L70510			; ScanColClamp
+	CALL	L70602			; ClampDispatch
 	CLR	R2
 L70004: MOVB	K25521, R0		; get _Attrs2
 	SUB	R0, R1
@@ -418,64 +428,66 @@ L70004: MOVB	K25521, R0		; get _Attrs2
 L70016: BNE	L70022
 	RETURN
 L70022: BR	L70062
-L70024: CALL	L70110
+L70024: CALL	L70110			; LineStepFwd
 	BNE	L70024
 	MOV	R3, -(SP)
 	CALL	K27752			; PixAddr0
-	CALL	K25354
-	CALL	K20430
+	CALL	K25354			; PixPlotReentryGuard
+	CALL	K20430			; LensPlotToggle
 	MOV	(SP)+, R3
 	MOV	R2, R0
 	INC	R0
 	BNE	L70062
 	RETURN
-L70062: CALL	L70544
+L70062: CALL	L70544			; RowBoundTest
 	BLO	L70074
 	JMP	L67272
 L70074: MOV	R2, R0
 	DEC	R0
 	BNE	L70106
-	JMP	L70602
+	JMP	L70602			; => ClampDispatch
 L70106: RETURN
 ;
-; Subroutine ??
+; Subroutine LineStepFwd
+; rotate-based line/mask stepper, forward (increasing) direction
+; (ld652, forward branch)
 L70110: TST	L71162
 	BPL	L70122
 	JMP	L70336
 L70122: MOV	R2, R0
 	INC	R0
 	BNE	L70152
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	ASLB	K25520
 	SEC
 	ROLB	R0
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BR	L70330
 L70152: DEC	R0
 	BNE	L70230
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	ASLB	K25520
 	BHIS	L70200
 	ROLB	R0
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BR	L70272
 L70200: ROLB	R0
-	CALL	K25354
-	CALL	L70510
+	CALL	K25354			; PixPlotReentryGuard
+	CALL	L70510			; ScanColClamp
 	MOV	R3, K12042
 	MOV	R4, K12044
 	MOV	#000001, R2
 	BR	L70322
-L70230: CALL	K25354
+L70230: CALL	K25354			; PixPlotReentryGuard
 	ASLB	K25520
 	BLO	L70252
 	ROLB	R0
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BR	L70322
 L70252: ROLB	R0
-	CALL	K25354
-	CALL	L70510
-	CALL	L70602
+	CALL	K25354			; PixPlotReentryGuard
+	CALL	L70510			; ScanColClamp
+	CALL	L70602			; ClampDispatch
 	CLR	R2
 L70272: CLR	R0
 	MOV	R0, L71164
@@ -491,44 +503,45 @@ L70322: TST	R1
 	DEC	R1
 L70330: DECB	K25521			; decrement _Attrs2
 	RETURN
-; Entry point
+; Entry point: mirrored (decreasing) direction of L70110's rotate-based stepper
+; (ld652, reverse branch, selected there via "jp m,ld6a7")
 L70336: MOV	R2, R0
 	INC	R0
 	BNE	L70366
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	ASRB	K25520
 	SEC
 	RORB	R0
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BR	L70330
 L70366: DEC	R0
 	BNE	L70444
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	ASRB	K25520
 	BHIS	L70414
 	RORB	R0
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BR	L70272
 L70414: RORB	R0
-	CALL	K25354
-	CALL	L70510
+	CALL	K25354			; PixPlotReentryGuard
+	CALL	L70510			; ScanColClamp
 	MOV	R3, K12042
 	MOV	R4, K12044
 	MOV	#000001, R2
 	BR	L70322
-L70444: CALL	K25354
+L70444: CALL	K25354			; PixPlotReentryGuard
 	ASRB	K25520
 	BLO	L70466
 	RORB	R0
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BR	L70322
 L70466: RORB	R0
-	CALL	K25354
-	CALL	L70510
-	CALL	L70602
+	CALL	K25354			; PixPlotReentryGuard
+	CALL	L70510			; ScanColClamp
+	CALL	L70602			; ClampDispatch
 	CLR	R2
 	BR	L70272
-; Entry point
+; Subroutine ScanColClamp (entry point)
 L70510: BIC	#000007, R3
 	MOVB	K25521, R0		; get _Attrs2
 	TST	L71162
@@ -540,7 +553,9 @@ L70536: ADD	R0, R3
 	DEC	R3
 	RETURN
 ;
-; Subroutine ??
+; Subroutine RowBoundTest
+; compute/test row (R3) boundary for current scan direction
+; (ld6f8)
 L70544: TST	L71162
 	BMI	L70570
 	BIC	#000007, R3
@@ -551,7 +566,10 @@ L70570: BIS	#000007, R3
 	SUB	#000010, R3
 	RETURN
 ;
-; Subroutine ??
+; Subroutine ClampDispatch
+; compare current position to saved position (K12042/K12044) and
+; dispatch to the row (L70752) or column (L71036) boundary-clamp routine
+; (ld728)
 L70602: MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R1, -(SP)
@@ -586,17 +604,19 @@ L70646: BEQ	L70740
 L70712: MOV	L71166, R0
 	DEC	R0
 	BEQ	L70734
-	CALL	L70752
+	CALL	L70752			; RowClamp
 	BR	L70740
-L70730: CALL	L70752
-L70734: CALL	L71036
+L70730: CALL	L70752			; RowClamp
+L70734: CALL	L71036			; ColClamp
 L70740: MOV	(SP)+, R2
 	MOV	(SP)+, R1
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine ??
+; Subroutine RowClamp
+; clamp/step row position (R4) at screen top/bottom, via L71110
+; (ld768)
 L70752: MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R4, R0
@@ -610,7 +630,7 @@ L70776:	CMP	R0, #177747		;!!!MUT-ARG!!!
 L71004: DEC	R4
 	MOV	L71162, R0
 	MOV	#177777, R2
-	CALL	L71110
+	CALL	L71110			; SegmentBufferStore
 L71022: MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	RETURN
@@ -618,7 +638,9 @@ L71030: CLR	R0
 	MOV	R0, R4
 	BR	L70774
 ;
-; Subroutine ??
+; Subroutine ColClamp
+; clamp/step column position (R4) at screen left/right, via L71110
+; (ld786)
 L71036: MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R4, R0
@@ -630,12 +652,15 @@ L71044:	CMP	R0, #000337		;!!!MUT-ARG!!!
 L71064: INC	R4
 	MOV	L71162, R0
 	MOV	#000201, R2
-	CALL	L71110
+	CALL	L71110			; SegmentBufferStore
 L71102: MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine ??
+; Subroutine SegmentBufferStore
+; store a line segment (X/Y/width/attr) into the ring buffer at (R5),
+; advance R5 by 4 words, wrap back to start once past 140000
+; (ld79d)
 L71110: MOV	R2, -(SP)
 	MOV	R3, (R5)+
 	MOV	R4, (R5)+
@@ -663,40 +688,40 @@ L71172: .WORD	0
 ; Overlay call
 ; LensHome:
 LENSHM::
-L71174: TST	K53066
+L71174: TST	K53066		; check LensOffX
 	BNE	L71212
-	TST	K53070
+	TST	K53070		; check LensOffY
 	BNE	L71212
 	RETURN
 L71212: CLR	K53066
 	CLR	K53070
-	CALL	K21254
-; Entry point
-L71226: MOV	K53106, R3
-	MOV	K53110, R4
-	MOV	K53112, R1
-	MOV	K53114, R2
+	CALL	K21254			; RedrawLensWindow
+; Subroutine RedrawLensBars (entry point)
+L71226: MOV	K53106, R3		; get LensXBarX
+	MOV	K53110, R4		; get LensXBarY
+	MOV	K53112, R1		; get LensXBarW
+	MOV	K53114, R2		; get LensXBarH
 	CALL	K13644			; PixInvert
-	MOV	K53116, R3
-	MOV	K53120, R4
-	MOV	K53122, R1
-	MOV	K53124, R2
+	MOV	K53116, R3		; get LensYBarX
+	MOV	K53120, R4		; get LensYBarY
+	MOV	K53122, R1		; get LensYBarW
+	MOV	K53124, R2		; get LensYBarH
 	CALL	K13644			; PixInvert
-	CALL	L72076
-	JMP	L72222
+	CALL	L72076			; LensBarX
+	JMP	L72222			; => LensBarY
 ;
 ; Overlay call
 ; LensLeft:
 LENSLT::
 L71306: MOV	#L71316, R3
 	JMP	L71702
-L71316: MOV	K53066, R3
-	MOV	K53072, R1
+L71316: MOV	K53066, R3		; get LensOffX
+	MOV	K53072, R1		; get LensOffXMax
 	TST	R3
 	BNE	L71334
 	RETURN
 L71334: MOV	R1, R0
-	CALL	L72010
+	CALL	L72010			; LensZoomRound
 	NEG	R0
 	ADD	R3, R0
 	BLO	L71352
@@ -709,15 +734,15 @@ L71352: MOV	R0, R3
 LENSRT::
 L71356: MOV	#L71366, R3
 	JMP	L71702
-L71366: MOV	K53066, R3
-	MOV	K53072, R1
+L71366: MOV	K53066, R3		; get LensOffX
+	MOV	K53072, R1		; get LensOffXMax
 	MOV	R3, R0
 	ADD	R1, R0
 	CMP	R0, #000500
 	BNE	L71412
 	RETURN
 L71412: MOV	R1, R0
-	CALL	L72010
+	CALL	L72010			; LensZoomRound
 	ADD	R3, R0
 	MOV	R0, R3
 	ADD	R1, R0
@@ -726,27 +751,27 @@ L71412: MOV	R1, R0
 	MOV	#000500, R0
 	SUB	R1, R0
 	MOV	R0, R3
-L71444: MOV	R3, K53066
-	CALL	K21254
-	MOV	K53106, R3
-	MOV	K53110, R4
-	MOV	K53112, R1
-	MOV	K53114, R2
+L71444: MOV	R3, K53066		; set LensOffX
+	CALL	K21254			; RedrawLensWindow
+	MOV	K53106, R3		; get LensXBarX
+	MOV	K53110, R4		; get LensXBarY
+	MOV	K53112, R1		; get LensXBarW
+	MOV	K53114, R2		; get LensXBarH
 	CALL	K13644			; PixInvert
-	JMP	L72076
+	JMP	L72076			; => LensBarX
 ;
 ; Overlay call
 ; LensUp:
 LENSUP::
 L71504: MOV	#L71514, R3
 	JMP	L71702
-L71514: MOV	K53070, R4
-	MOV	K53074, R2
+L71514: MOV	K53070, R4		; get LensOffY
+	MOV	K53074, R2		; get LensOffYMax
 	TST	R4
 	BNE	L71532
 	RETURN
 L71532: MOV	R2, R0
-	CALL	L72010
+	CALL	L72010			; LensZoomRound
 	NEG	R0
 	ADD	R4, R0
 	BLO	L71550
@@ -759,15 +784,15 @@ L71550: MOVB	R0, R4
 LENSDN::
 L71554: MOV	#L71564, R3
 	JMP	L71702
-L71564: MOV	K53070, R4
-	MOV	K53074, R2
+L71564: MOV	K53070, R4		; get LensOffY
+	MOV	K53074, R2		; get LensOffYMax
 	MOV	R4, R0
 	ADD	R2, R0
 	CMP	R0, #000310
 	BNE	L71610
 	RETURN
 L71610: MOV	R2, R0
-	CALL	L72010
+	CALL	L72010			; LensZoomRound
 	ADD	R4, R0
 	MOV	R0, R4
 	ADD	R2, R0
@@ -776,21 +801,21 @@ L71610: MOV	R2, R0
 	MOV	#000310, R0
 	SUB	R2, R0
 	MOV	R0, R4
-L71642: MOV	R4, K53070
-	CALL	K21254
-	MOV	K53116, R3
-	MOV	K53120, R4
-	MOV	K53122, R1
-	MOV	K53124, R2
+L71642: MOV	R4, K53070		; set LensOffY
+	CALL	K21254			; RedrawLensWindow
+	MOV	K53116, R3		; get LensYBarX
+	MOV	K53120, R4		; get LensYBarY
+	MOV	K53122, R1		; get LensYBarW
+	MOV	K53124, R2		; get LensYBarH
 	CALL	K13644			; PixInvert
-	JMP	L72222
+	JMP	L72222			; => LensBarY
 ; Entry point
 L71702: MOV	R3, -(SP)
 	CALL	(R3)
 	MOV	(SP)+, R3
 	MOVB	#000024, K25521		; set _Attrs2
 	CALL	K25244			; EXX
-L71722: CALL	L72050
+L71722: CALL	L72050			; LensScanFire
 	CALL	K12054			; PutCursor
 	CALL	K25244			; EXX
 L71736: NOP
@@ -799,7 +824,7 @@ L71736: NOP
 	MOVB	#000005, K25521		; set _Attrs2
 	CALL	K25244			; EXX
 	CALL	K13110			; JCursHide: Restore area under cursor
-	CALL	L72050
+	CALL	L72050			; LensScanFire
 	CALL	K25244			; EXX
 	MOV	R3, -(SP)
 	CALL	K25244			; EXX
@@ -807,7 +832,10 @@ L71736: NOP
 	CALL	(R3)
 	BR	L71722
 ;
-; Subroutine ??
+; Subroutine LensZoomRound
+; shift R0 (a pixel-length) down to match current lens zoom
+; (LensCurX 2 => round down to mult of 4, LensCurX 4 => round down to mult of 2)
+; (lb7c0)
 L72010: ASR	R0
 	ASR	R0
 	CMP	K23120, #000002		; LensCurX = 2 ?
@@ -819,7 +847,10 @@ L72032: CMP	K23120, #000004		; LensCurX = 4 ?
 	BIC	#000001, R0
 L72046: RETURN
 ;
-; Subroutine ??
+; Subroutine LensScanFire
+; poll ScanKey, pop the caller off the stack (abort inner loop) if a
+; selection/fire key was pressed
+; (lb7da)
 L72050: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
@@ -830,59 +861,66 @@ L72070: MOV	(SP)+, R3
 ;
 L72074: JMP	(R3)
 ;
-; Subroutine ??
-L72076: MOV	K53066, R1
+; Subroutine LensBarX
+; compute/invert the horizontal (X) lens-position indicator bar
+; (lb7e6)
+L72076: MOV	K53066, R1		; get LensOffX
 	MOV	#000334, R0
-	CALL	L72412
+	CALL	L72412			; Mul16
 	MOV	#000500, R0
-	CALL	L72344
+	CALL	L72344			; LensScale
 	MOV	R0, R3
 	ADD	#000030, R3
 	MOV	#000020, R4
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
-	MOV	K53072, R1
+	MOV	K53072, R1		; get LensOffXMax
 	MOV	#000334, R0
-	CALL	L72412
+	CALL	L72412			; Mul16
 	MOV	#000500, R0
-	CALL	L72344
+	CALL	L72344			; LensScale
 	MOV	R0, R1
 	MOV	#000015, R2
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
-	MOV	R3, K53106
-	MOV	R4, K53110
-	MOV	R1, K53112
-	MOV	R2, K53114
+	MOV	R3, K53106		; set LensXBarX
+	MOV	R4, K53110		; set LensXBarY
+	MOV	R1, K53112		; set LensXBarW
+	MOV	R2, K53114		; set LensXBarH
 	JMP	K13644			; PixInvert
 ;
-; Subroutine ??
-L72222: MOV	K53070, R1
+; Subroutine LensBarY
+; compute/invert the vertical (Y) lens-position indicator bar
+; (lb818)
+L72222: MOV	K53070, R1		; get LensOffY
 	MOV	#000214, R0
-	CALL	L72412
+	CALL	L72412			; Mul16
 	MOV	#000310, R0
-	CALL	L72344
+	CALL	L72344			; LensScale
 	ADD	#000050, R0
 	MOV	R0, R4
 	CLR	R3
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
-	MOV	K53074, R1
+	MOV	K53074, R1		; get LensOffYMax
 	MOV	#000214, R0
-	CALL	L72412
+	CALL	L72412			; Mul16
 	MOV	#000310, R0
-	CALL	L72344
+	CALL	L72344			; LensScale
 	MOV	R0, R2
 	MOV	#000015, R1
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
-	MOV	R3, K53116
-	MOV	R4, K53120
-	MOV	R1, K53122
-	MOV	R2, K53124
+	MOV	R3, K53116		; set LensYBarX
+	MOV	R4, K53120		; set LensYBarY
+	MOV	R1, K53122		; set LensYBarW
+	MOV	R2, K53124		; set LensYBarH
 	JMP	K13644			; PixInvert
 ;
-; Subroutine ??
+; Subroutine LensScale
+; scale R3:R2 (dividend) by R0, used to map lens position to the
+; on-screen indicator bar coordinates
+; (lb84e)
 L72344: TST	R0
 	BNE	L72354
 	MOV	R3, R0
@@ -902,7 +940,9 @@ L72364: INC	R0
 L72406: MOV	(SP)+, R1
 	RETURN
 ;
-; Subroutine ??
+; Subroutine Mul16
+; 16x16-bit unsigned multiply, R0*R1 -> R3:R2
+; (lb86b)
 L72412: CLR	R3
 	CLR	R2
 	MOV	#000010, R5
@@ -934,10 +974,10 @@ L72506: CALL	L72634			; PutXLens
 	MOV	K62376, R4		; get Mouse Y
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
-	MOV	K53076, R3
-	MOV	K53100, R4
-	MOV	K53102, R1
-	MOV	K53104, R2
+	MOV	K53076, R3		; get LensBoxWidth
+	MOV	K53100, R4		; get LensBoxHeight
+	MOV	K53102, R1		; get LensSrcWidth
+	MOV	K53104, R2		; get LensSrcHeight
 	ASR	R1
 	ASR	R2
 	ADD	R1, R3
@@ -945,17 +985,17 @@ L72506: CALL	L72634			; PutXLens
 	MOV	R3, K62374		; set Mouse X
 	MOV	R4, K62376		; set Mouse Y
 	MOV	K53054, R0		; get MagnifyX
-	CALL	L74322
+	CALL	L74322			; SetLensZoom
 	MOV	(SP)+, R3
 	MOV	(SP)+, R4
 	MOV	R3, K62374		; set Mouse X
 	MOV	R4, K62376		; set Mouse Y
 	CLR	R0
-	MOV	R0, K23122
-	CALL	K21254
-	CALL	L71226
+	MOV	R0, K23122		; set LensPlotSkipFl
+	CALL	K21254			; RedrawLensWindow
+	CALL	L71226			; RedrawLensBars
 	MOV	K23120, R0		; LensCurX
-; PutXLens:
+; Subroutine PutXLens
 L72634: MOV	#000001, R3
 	MOV	#000003, R4
 	MOV	#000022, R1
@@ -969,7 +1009,7 @@ L72634: MOV	#000001, R3
 L72700: JMP	K13644			; PixInvert
 ;
 ; Overlay call
-; EditModeSel: Выбрано "Уст" / "Сброс" / "Toggle" в LENS_MENU
+; EditModeSel: Selected "Уст" / "Сброс" / "Toggle" в LENS_MENU
 ART33::
 L72704: MOVB	K25521, R0		; get _Attrs2
 	SUB	#000003, R0
@@ -982,7 +1022,7 @@ L72704: MOVB	K25521, R0		; get _Attrs2
 L72740: CALL	L72754			; PutEditMode
 	MOV	K53060, R0		; get NewEditMode
 	MOV	R0, K53056		; set CurEditMode
-; PutEditMode:
+; Subroutine PutEditMode
 L72754: MOV	#000145, R3
 	MOV	#000003, R4
 	MOV	#000031, R1
@@ -998,7 +1038,7 @@ L72754: MOV	#000145, R3
 L73024: JMP	K13644			; PixInvert
 ;
 ; Overlay call
-; MagnifySel: Выбрано увеличение x2 / x4 / x8 в меню "Увелич."
+; MagnifySel: Selected увеличение x2 / x4 / x8 в меню "Увелич."
 MAGSEL::
 L73030: MOVB	K25521, R0		; get _Attrs2
 	INC	R0
@@ -1007,8 +1047,8 @@ L73030: MOVB	K25521, R0		; get _Attrs2
 	BLO	L73052
 	ADD	#000002, R0
 L73052: MOV	R0, K53054		; set MagnifyX
-	CALL	K54052
-	CALL	K26476
+	CALL	K54052			; WindSelCleanup
+	CALL	K26476			; ScreenPageAddr
 	MOV	#000004, R0
 	CLR	R3
 	MOV	#L73104, R2		; jump addr
@@ -1019,18 +1059,18 @@ L73104: MOV	#000001, R0
 	MOV	#K52456, R5
 	CALL	K63646			; MenuOpen
 	MOV	K53054, R0		; get MagnifyX
-	CALL	L74322
+	CALL	L74322			; SetLensZoom
 	CLR	K23122
-	CALL	K21254
-	CALL	L72076
-	CALL	L72222
+	CALL	K21254			; RedrawLensWindow
+	CALL	L72076			; LensBarX
+	CALL	L72222			; LensBarY
 	MOV	K23120, R0		; get LensCurX
-	CALL	L72634
+	CALL	L72634			; PutXLens
 	MOV	K53056, R0		; get CurEditMode
-	CALL	L72754
+	CALL	L72754			; PutEditMode
 ; Entry point
-L73174: MOV	#177777, K53062
-	MOV	#177777, K53064
+L73174: MOV	#177777, K53062		; set LensPrevMouseX
+	MOV	#177777, K53064		; set LensPrevMouseY
 	MOV	#000002, R0		; cursor 2
 	CALL	K62000			; SetCursAddr
 	CALL	K12054			; PutCursor
@@ -1039,18 +1079,18 @@ L73230: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
 	BNE	L73310			; yes =>
-	MOV	#177777, K53062
-	MOV	#177777, K53064
+	MOV	#177777, K53062		; set LensPrevMouseX
+	MOV	#177777, K53064		; set LensPrevMouseY
 L73262: CALL	K62036			; Process ScanCode into X/Y change
 L73266: NOP
 	CALL	K13110			; JCursHide: Restore area under cursor
-	CALL	L73536
+	CALL	L73536			; LensBoundsBox
 	BNE	L73370
 	CALL	K12054			; PutCursor
 	BR	L73230
-L73310: CALL	L74740
-	MOV	K53062, R1
-	MOV	K53064, R2
+L73310: CALL	L74740			; LensInBounds
+	MOV	K53062, R1		; get LensPrevMouseX
+	MOV	K53064, R2		; get LensPrevMouseY
 	SUB	R1, R3
 	BNE	L73334
 	SUB	R2, R4
@@ -1058,9 +1098,9 @@ L73310: CALL	L74740
 L73334: NOP
 	CALL	K13110			; JCursHide: Restore area under cursor
 	CALL	K42334			; MakeAttrs
-	CALL	L73622
-	MOV	R3, K53062
-	MOV	R4, K53064
+	CALL	L73622			; LensPixelEdit
+	MOV	R3, K53062		; set LensPrevMouseX
+	MOV	R4, K53064		; set LensPrevMouseY
 	CALL	K12054			; PutCursor
 	BR	L73262
 L73370: CLR	R0			; cursor 0
@@ -1077,7 +1117,7 @@ L73430: NOP
 	CALL	K13110			; JCursHide: Restore area under cursor
 	CMP	K65276, #K52456
 	BNE	L73464
-	CALL	L73536
+	CALL	L73536			; LensBoundsBox
 	BNE	L73464
 	JMP	L73174
 L73464: CALL	K12054			; PutCursor
@@ -1088,26 +1128,29 @@ L73476: CALL	K61700			; MenuBeep
 	CALL	K62652			; MenuSel
 	CMP	K65276, #K52456
 	BNE	L73376
-	CALL	L73536
+	CALL	L73536			; LensBoundsBox
 	BNE	L73534
 	JMP	L73174
 L73534: BR	L73376
 ;
-; Subroutine ??
-L73536: MOV	K53076, R3
-	MOV	K53100, R4
-	MOV	K53102, R1
-	MOV	K53104, R2
+; Subroutine LensBoundsBox
+; build the lens window's clamped bounding box (inset by 1, size+2)
+; for range-checks against the click/menu position
+; (lb9f8)
+L73536: MOV	K53076, R3		; get LensBoxWidth
+	MOV	K53100, R4		; get LensBoxHeight
+	MOV	K53102, R1		; get LensSrcWidth
+	MOV	K53104, R2		; get LensSrcHeight
 	DEC	R3
 	DEC	R4
 	INC	R1
 	INC	R1
 	INC	R2
 	INC	R2
-	JMP	K63554
+	JMP	K63554			; => MenuRange
 ;
 ; Overlay call
-; MagnGrid: Выбрано "Сетка" в меню "Увелич."
+; MagnGrid: Selected "Сетка" in menu "Увелич."
 MAGRID::
 L73576: COM	K23124			; invert GridFlag
 ;
@@ -1118,8 +1161,11 @@ L73602: MOV	K23124, R0		; get GridFlag
 	MOV	#000102, R4		; 66.
 	JMP	K17154			; PrtFlagXY
 ;
-; Subroutine ??
-L73622: CALL	L74740
+; Subroutine LensPixelEdit
+; toggle/set/clear one pixel at the mouse position inside the lens,
+; per CurEditMode (Set/Reset/Toggle), if inside the lens bounds
+; (lbb43)
+L73622: CALL	L74740			; LensInBounds
 	BHIS	L73632
 	RETURN
 L73632: MOV	R3, -(SP)
@@ -1127,7 +1173,7 @@ L73632: MOV	R3, -(SP)
 	MOV	R3, R0
 	BIC	#177770, R0		; 0..7
 	MOV	R0, -(SP)
-	CALL	K30060
+	CALL	K30060			; PixAddr0Attr
 	MOV	#000200, R5
 	MOV	(SP)+, R0
 	BEQ	L73666
@@ -1151,19 +1197,19 @@ L73746: XOR	R5, (R3)
 L73750: BITB	R5, (R3)
 	MFPS	<K23720+2>
 	CMPB	R4, (R3)+
-	CALL	K25354
-	CALL	K22642
+	CALL	K25354			; PixPlotReentryGuard
+	CALL	K22642			; SetPixelAttrRMW
 	BIS	#000140, K25506
 	MOV	K25506, @#177400
 	MTPS	#000000			; enable interrupts
 	BIC	#000340, K25474
 	BIC	#000340, K25500
-	MOV	R0, K23126
+	MOV	R0, K23126		; set LensPlotFillValue
 	MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
 	CMP	K23120, #000002		; LensCurX = 2 ?
 	BNE	L74146
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BEQ	L74144
 	BIC	#000001, R3
 	BIC	#000001, R4
@@ -1180,12 +1226,12 @@ L73750: BITB	R5, (R3)
 	DEC	R0
 	BEQ	L74134
 	MOV	#000003, R5
-L74134: MOV	K23126, R0
-	CALL	K22726
+L74134: MOV	K23126, R0		; get LensPlotFillValue
+	CALL	K22726			; XorBox2Row
 L74144: BR	L74312
 L74146: CMP	K23120, #000004		; LensCurX = 4 ?
 	BNE	L74232
-	CALL	K25354
+	CALL	K25354			; PixPlotReentryGuard
 	BEQ	L74312
 	BIC	#000003, R3
 	BIC	#000003, R4
@@ -1196,29 +1242,31 @@ L74146: CMP	K23120, #000004		; LensCurX = 4 ?
 	TST	R0
 	BEQ	L74220
 	COMB	R5
-L74220: MOV	K23126, R0
-	CALL	K23000
+L74220: MOV	K23126, R0		; get LensPlotFillValue
+	CALL	K23000			; XorBox4Row
 	BR	L74312
-L74232: CALL	K25354
+L74232: CALL	K25354			; PixPlotReentryGuard
 	BEQ	L74312
 	BIC	#000007, R3
 	BIC	#000007, R4
 	CALL	K27752			; PixAddr0
 	INC	R3
-	MOV	K23126, R0
+	MOV	K23126, R0		; get LensPlotFillValue
 	COM	<K23720+2>
 	ASR	<K23720+2>
 	ASR	<K23720+2>
 	ASR	<K23720+2>
-	CALL	K23130
-	CALL	K23052
+	CALL	K23130			; NormalizeLensAttr
+	CALL	K23052			; FillBox8Row
 L74312: MOV	(SP)+, R4
 	MOV	(SP)+, R3
 	TST	R0
 	RETURN
 ;
-; Subroutine ??
-L74322: CALL	K25354
+; Subroutine SetLensZoom
+; set LensCurX (zoom level) and recompute the lens window origin
+; (lbc4c)
+L74322: CALL	K25354			; PixPlotReentryGuard
 	MOV	K23120, R0		; get LensCurX
 	DEC	R0
 	BNE	L74370
@@ -1231,28 +1279,28 @@ L74322: CALL	K25354
 	MOV	K62376, R4		; get Mouse Y
 	ADD	R0, R4
 	BR	L74400
-L74370: CALL	L74740
+L74370: CALL	L74740			; LensInBounds
 	BHIS	L74400
 	RETURN
-L74400: CALL	K25354
+L74400: CALL	K25354			; PixPlotReentryGuard
 	MOV	R0, K23120		; set LensCurX
-	MOV	K53102, R1
-	MOV	K53104, R2
+	MOV	K53102, R1		; get LensSrcWidth
+	MOV	K53104, R2		; get LensSrcHeight
 	MOV	R1, R0
-	CALL	L75074
+	CALL	L75074			; DivByZoom
 	MOV	R5, R1
 	MOV	R2, R0
-	CALL	L75074
+	CALL	L75074			; DivByZoom
 	MOV	R5, R2
-	MOV	R1, K53072
-	MOV	R2, K53074
+	MOV	R1, K53072		; set LensOffXMax
+	MOV	R2, K53074		; set LensOffYMax
 	MOV	R1, R0
 	ASR	R0
 	NEG	R0
 	ADD	R3, R0
 	BLO	L74464
 	CLR	R0
-L74464: CALL	L74702
+L74464: CALL	L74702			; ZoomRoundDown
 	MOV	R0, K25522
 	ADD	R1, R0
 	CMP	R0, #000500
@@ -1266,7 +1314,7 @@ L74516: MOV	R2, R0
 	ADD	R4, R0
 	BLO	L74532
 	CLR	R0
-L74532: CALL	L74702
+L74532: CALL	L74702			; ZoomRoundDown
 	MOV	R0, K25524
 	ADD	R2, R0
 	BLO	L74554
@@ -1280,19 +1328,19 @@ L74566: MOV	K25522, K53066
 	SUB	K25522, R3
 	SUB	K25524, R4
 	MOV	R3, R0
-	CALL	L75120
+	CALL	L75120			; MulByZoom
 	MOV	R0, R3
 	MOV	K23120, R0		; get LensCurX
 	ASR	R0
 	ADD	R0, R3
 	MOV	R4, R0
-	CALL	L75120
+	CALL	L75120			; MulByZoom
 	MOV	R0, R4
 	MOV	K23120, R0		; get LensCurX
 	ASR	R0
 	ADD	R0, R4
-	MOV	K53076, R1
-	MOV	K53100, R2
+	MOV	K53076, R1		; get LensBoxWidth
+	MOV	K53100, R2		; get LensBoxHeight
 	ADD	R1, R3
 	ADD	R2, R4
 	MOV	R3, K62374		; set Mouse X
@@ -1300,7 +1348,10 @@ L74566: MOV	K25522, K53066
 	TST	R0
 	RETURN
 ;
-; Subroutine ??
+; Subroutine ZoomRoundDown
+; round R0 down to a multiple of the current zoom cell size
+; (2x -> mult of 4, 4x -> mult of 2, 8x -> unchanged)
+; (lbcd3)
 L74702: CMP	K23120, #000002		; LensCurX = 2 ?
 	BNE	L74720
 	BIC	#000003, R0
@@ -1311,11 +1362,13 @@ L74720: CMP	K23120, #000004		; LensCurX = 4 ?
 L74732: BIC	#000001, R0
 	RETURN
 ;
-; Subroutine ??
-L74740: MOV	K53076, R3
-	MOV	K53100, R4
-	MOV	K53102, R1
-	MOV	K53104, R2
+; Subroutine LensInBounds
+; check whether the mouse position is inside the lens window bounds
+; (lbce6)
+L74740: MOV	K53076, R3		; get LensBoxWidth
+	MOV	K53100, R4		; get LensBoxHeight
+	MOV	K53102, R1		; get LensSrcWidth
+	MOV	K53104, R2		; get LensSrcHeight
 	MOV	K62374, R0		; get Mouse X
 	SUB	R3, R0
 	BHIS	L74772
@@ -1337,19 +1390,21 @@ L75020: MOV	R0, R4
 	BHIS	L75034
 	RETURN
 L75034: MOV	R3, R0
-	CALL	L75074
+	CALL	L75074			; DivByZoom
 	MOV	R5, R3
 	MOV	R4, R0
-	CALL	L75074
+	CALL	L75074			; DivByZoom
 	MOV	R5, R4
-	MOV	K53066, R1
-	MOV	K53070, R2
+	MOV	K53066, R1		; get LensOffX
+	MOV	K53070, R2		; get LensOffY
 	ADD	R1, R3
 	ADD	R2, R4
 	TST	R0
 	RETURN
 ;
-; Subroutine ??
+; Subroutine DivByZoom
+; unsigned divide R0 by LensCurX (zoom level), quotient in R5
+; (lbd12)
 L75074: MOV	R1, -(SP)
 	MOV	K23120, R1		; get LensCurX
 	MOV	#177777, R5
@@ -1359,7 +1414,9 @@ L75106: INC	R5
 	MOV	(SP)+, R1
 	RETURN
 ;
-; Subroutine ??
+; Subroutine MulByZoom
+; multiply R0 by LensCurX (zoom level), result in R0
+; (lbd1f)
 L75120: MOV	R1, -(SP)
 	MOV	R5, -(SP)
 	MOV	R0, R1
@@ -1375,31 +1432,31 @@ L75146: MOV	#177777, R0
 L75154: CLR	R0
 L75156: MOV	R0, K60502
 	CLR	K56110			; clear WindDefFl
-	CALL	K54052
+	CALL	K54052			; WindSelCleanup
 	MOV	K56146, R3		; get W_XCoord
 	MOV	K56150, R3		; get W_XSize
-	MOV	K56152, R1
-	MOV	K56154, R2
-	CALL	K60404
+	MOV	K56152, R1		; get WindLiveW
+	MOV	K56154, R2		; get WindLiveH
+	CALL	K60404			; NormalizeRect
 	MOV	K56116, K60472		; WindBegX ->
 	MOV	K56120, K60474		; WindBegY ->
 	MOV	K56122, K60476		; WindEndX ->
 	MOV	K56124, K60500		; WindEndY ->
-	MOV	#177777, K56114
-	CALL	K54134
+	MOV	#177777, K56114		; set BoxSelectFl
+	CALL	K54134			; WindBaseReset
 	CLR	K56106
-	CALL	K53126
-	CALL	K54052
-	CALL	K26476
+	CALL	K53126			; WindDragLoop
+	CALL	K54052			; WindSelCleanup
+	CALL	K26476			; ScreenPageAddr
 	MOV	K60502, R0
 	TST	R0
 	BEQ	L75314
-	CALL	K54564
+	CALL	K54564			; WindClearEntry
 L75314: MOV	K56146, R3		; get W_XCoord
 	MOV	K56150, R4		; get W_XSize
-	MOV	K56152, R1
-	MOV	K56154, R2
-	CALL	K60404
+	MOV	K56152, R1		; get WindLiveW
+	MOV	K56154, R2		; get WindLiveH
+	CALL	K60404			; NormalizeRect
 	MOV	K30536, R3		; get BuffAddr
 ;
 ; Overlay call
@@ -1407,7 +1464,7 @@ ART37::
 L75344: RETURN
 
 ; Overlay call
-; Выбран один из пяти пунктов "Вывод N x N" в меню "Печать", N = 1..5
+; Выбран один из пяти пунктов "Вывод N x N" in menu "Печать", N = 1..5
 ART38::
 L75346: MOV	#000002, R0
 	CALL	K42704			; SetBorder
@@ -1416,18 +1473,18 @@ L75346: MOV	#000002, R0
 	BR	L75370
 
 ; Overlay call
-; Выбрано "Вывод  полутон." в меню "Печать"
+; Selected "Вывод  полутон." in menu "Печать"
 ART39::
 L75366: CLR	R0
 L75370: MOV	R0, -(SP)
-	CALL	K54052
-	CALL	K26476
+	CALL	K54052			; WindSelCleanup
+	CALL	K26476			; ScreenPageAddr
 	MOV	#034000, R0
 	CALL	K25024			; ClearScreen
 	MOV	(SP)+, R0
 	MOV	SP, <K23720+2>		; save SP
 	MOV	R0, -(SP)
-	CALL	K37642
+	CALL	K37642			; ComputePrintPitch
 	INC	K40306
 	BIC	#177774, K40306		; 0..3
 	CLR	K25514
@@ -1484,17 +1541,17 @@ L75674: MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R2, -(SP)
 	BEQ	L75720
-	CALL	L76200
-L75710: CALL	L76150
+	CALL	L76200			; PrinterDumpRow
+L75710: CALL	L76150			; PrinterDumpByte
 	SOB	R1, L75710
 	BR	L75746
-L75720: CALL	L76414
+L75720: CALL	L76414			; PrinterDumpPlot
 	MOVB	(R1)+, R0
-	CALL	L76150
+	CALL	L76150			; PrinterDumpByte
 	MOVB	(R1)+, R0
-	CALL	L76150
+	CALL	L76150			; PrinterDumpByte
 	MOVB	(R1)+, R0
-	CALL	L76150
+	CALL	L76150			; PrinterDumpByte
 L75746: TST	K40300
 	BNE	L75776
 	INC	R3
@@ -1543,7 +1600,9 @@ L76114: CLR	K25514
 	MOV	<K23720+2>, SP		; restore SP
 	JMP	K24742			; START2
 ;
-; Subroutine ??
+; Subroutine PrinterDumpByte
+; screen-dump-to-printer helper, not yet cross-referenced (no
+; matching x-spectrum-disasm topic identified for the printer dump feature)
 L76150: MOV	R0, -(SP)
 	MOV	R5, -(SP)
 	MOV	040306, R5
@@ -1555,14 +1614,16 @@ L76166: CALL	K65356			; Send to printer
 	MOV	(SP)+, R0
 	RETURN
 ;
-; Subroutine ??
+; Subroutine PrinterDumpRow
+; screen-dump-to-printer helper, not yet cross-referenced (no
+; matching x-spectrum-disasm topic identified for the printer dump feature)
 L76200: MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R2, -(SP)
 	MOV	R3, R1
 	BIC	#177770, R1		; 0..7
 	ADD	#K15070, R1
-	CALL	K30060
+	CALL	K30060			; PixAddr0Attr
 	MTPS	#000340			; disable interrupts
 	BIS	#000340, K25474
 	BIS	#000340, K25500
@@ -1603,13 +1664,15 @@ L76342: TST	R0
 	MOV	(SP)+, R0
 L76412: RETURN
 ;
-; Subroutine ??
+; Subroutine PrinterDumpPlot
+; screen-dump-to-printer helper, not yet cross-referenced (no
+; matching x-spectrum-disasm topic identified for the printer dump feature)
 L76414: MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R3, R1
 	BIC	#177770, R1		; 0..7
 	ADD	#K15070, R1
-	CALL	K30060
+	CALL	K30060			; PixAddr0Attr
 	MTPS	#000340			; disable interrupts
 	BIS	#000340, K25474
 	BIS	#000340, K25500

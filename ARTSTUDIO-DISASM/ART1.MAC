@@ -16,17 +16,17 @@
 TEXTMN::
 J65634: MOV	K56110, R0		; get WindDefFl
 	MOV	R0, -(SP)
-	CALL	K54052
-	CALL	K26476
+	CALL	K54052			; WindSelCleanup
+	CALL	K26476			; ScreenPageAddr
 	MOV	(SP)+, R0
 	MOV	R0, K56110		; set WindDefFl
 	BEQ	J65712
-	CALL	K56222
+	CALL	K56222			; WindMarqueeErase
 	MOV	K56146, R3		; get W_XCoord
 	MOV	K56150, R4		; W_XSize
-	MOV	K56152, R1
-	MOV	K56154, R4
-	CALL	K60404
+	MOV	K56152, R1		; get WindLiveW
+	MOV	K56154, R4		; get WindLiveH
+	CALL	K60404			; NormalizeRect
 J65712: MOV	#J65756, R5
 	MOV	K65276, 000012(R5)
 	MOV	R5, K65276		; set Menu_Addr
@@ -34,7 +34,7 @@ J65712: MOV	#J65756, R5
 	MOV	000002(R5), R4		; get Y
 	MOV	000004(R5), R1		; get width
 	MOV	000006(R5), R2		; get height
-	CALL	K13264
+	CALL	K13264			; SaveMenuBackground
 	JMP	K63646			; MenuOpen
 ;
 ; TEXT_MENU:
@@ -112,11 +112,11 @@ K66400:	.BYTE	200,211
 ;
 J66724: JMP	001132 ; FONTED
 ;
-; T_Direct: Выбрано "Слева направо" или "Сверху вниз" в меню "Текст"
+; T_Direct: Selected "Слева направо" или "Сверху вниз" in menu "Текст"
 J66730: MOVB	K25521, R0		; get _Attrs2
 	MOV	R0, J72030		; set DirectFl
-	CALL	K54052
-	CALL	K26476
+	CALL	K54052			; WindSelCleanup
+	CALL	K26476			; ScreenPageAddr
 K66750:	MOV	J72022, R0		; get WidthFl
 	ASL	R0
 	ASL	R0
@@ -127,7 +127,7 @@ K66750:	MOV	J72022, R0		; get WidthFl
 	ASL	R0
 	ASL	R0
 	MOVB	R0, K25521		; set _Attrs2
-	TST	J72064
+	TST	J72064		; check SidewayFl
 	BEQ	J67030
 	MOVB	K25521, R0		; get _Attrs2
 	MOVB	K25520, K25521		; -> _Attrs2
@@ -138,11 +138,11 @@ J67030: MOVB	K25520, J72024
 	INC	R3
 	MOVB	K25520, (R3)+
 	MOVB	K25521, (R3)+		; _Attrs2 ->
-	MOV	R3, J72060
+	MOV	R3, J72060		; set TextInputPtr
 	MOV	#000011, R0		; cursor 9.
 	CALL	K62000			; SetCursAddr
-	CALL	J67354
-J67102:	CALL	J67230
+	CALL	J67354			; TextCursorClamp
+J67102:	CALL	J67230			; TextCursorDraw
 	CALL	K61754			; PassFire
 J67112: CALL	K45776			; Read input and set ScanCode
 	MOV	K62374, R3		; get Mouse X
@@ -150,12 +150,12 @@ J67112: CALL	K45776			; Read input and set ScanCode
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	CALL	K62036			; Process ScanCode into X/Y change
-	CALL	J67354
+	CALL	J67354			; TextCursorClamp
 J67142: NOP
 	CALL	K61706			; cp_ArrFire
 	MOV	(SP)+, R4
 	MOV	(SP)+, R3
-	CALL	J67240
+	CALL	J67240			; TextCursorDraw
 	CALL	K61670			; cp_ArrY
 	MOV	#K66750, R3
 	BLO	J67176
@@ -163,25 +163,27 @@ J67142: NOP
 J67176: MOV	K46222, R0		; get ScanCode
 	BIT	#000020, R0		; selection?
 	BNE	J67216			; yes =>
-	CALL	J67230
+	CALL	J67230			; TextCursorDraw
 	BR	J67112
 J67216: CALL	K61700			; MenuBeep
-	CALL	J67426
+	CALL	J67426			; TextEntryKeyLoop
 	BR	J67102
 ;
-; Subroutine ??
+; Subroutine TextCursorDraw
+; draw the direct-text-entry cursor box at the mouse position
+; (la12e/la131/la15e)
 J67230: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
-; Entry point
-J67240: MOVB	#000377, K17522
+; Subroutine TextCursorDraw (entry point)
+J67240: MOVB	#000377, K17522		; set _Attrs0
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
-	MOV	J72026, R2
+	MOV	J72026, R2		; get SymbolCellHeight
 	SUB	#000002, R2
-	MOV	J72024, R1
+	MOV	J72024, R1		; get SymbolCellWidth
 	SUB	#000002, R1
 	ASR	R1
-	CALL	J67326
+	CALL	J67326			; TextCursorDraw
 	ADD	R1, R3
 	INC	R4
 	CALL	K15464			; _VrtLine
@@ -189,7 +191,7 @@ J67240: MOVB	#000377, K17522
 	CALL	K15464			; _VrtLine
 	DEC	R4
 	INC	R3
-; Entry point
+; Subroutine TextCursorDraw (entry point)
 J67326: CALL	K15670			; _HrzLine
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
@@ -200,15 +202,17 @@ J67326: CALL	K15670			; _HrzLine
 	MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine ??
-J67354: MOV	J72024, R0
+; Subroutine TextCursorClamp
+; clamp mouse position so the cursor box stays on screen
+; (la16b)
+J67354: MOV	J72024, R0		; get SymbolCellWidth
 	MOV	#K62374, R3		; addr Mouse X
 	ADD	(R3), R0
 	SUB	#000500, R0
 	BLO	J67400
 	NEG	R0
 	ADD	R0, (R3)
-J67400: MOV	J72026, R0
+J67400: MOV	J72026, R0		; get SymbolCellHeight
 	INC	R3
 	INC	R3
 	ADD	(R3), R0
@@ -218,9 +222,12 @@ J67400: MOV	J72026, R0
 	ADD	R0, (R3)
 J67424: RETURN
 ;
-; Subroutine ??
-J67426: CALL	J71046
-J67432:	CALL	J71202
+; Subroutine TextEntryKeyLoop
+; direct-text-entry keyboard input loop (read char via .TTYIN,
+; handle Enter/Backspace/arrow keys, apply Caps lock, feed printable chars in)
+; (la186)
+J67426: CALL	J71046			; TextPlaceClamp
+J67432:	CALL	J71202			; TextRowSeparator
 	EMT	340			; .TTYIN
 	BLO	.-2
 	BIC	#177400, R0		; keep lower byte
@@ -250,9 +257,9 @@ J67524: BIC	#000040, R0
 	MOV	#000040, R2
 	XOR	R2, R0
 	MOV	R0, -(SP)
-J67564: CALL	J71202
+J67564: CALL	J71202			; TextRowSeparator
 ;
-J67570: MOV	J72060, R3
+J67570: MOV	J72060, R3		; get TextInputPtr
 	MOV	#000050, R1
 J67600: MOVB	#000377, (R3)+
 	SOB	R1, J67600
@@ -262,7 +269,7 @@ J67600: MOVB	#000377, (R3)+
 	BEQ	J67632
 	TST	K17524			; check InvertFl
 	BNE	J67636
-J67632: CALL	J70300
+J67632: CALL	J70300			; TextMarkerDraw
 J67636: MOV	(SP)+, R0
 	SUB	#000040, R0
 	ASL	R0
@@ -270,7 +277,7 @@ J67636: MOV	(SP)+, R0
 	ASL	R0
 	MOV	#K01402, R3		; Font2
 	ADD	R0, R3
-	MOV	J72066, R1
+	MOV	J72066, R1		; get BoldFl
 	MOV	#000010, R5
 	MOV	#J72050, R2		; SymblBuff addr
 J67674: CLR	R0
@@ -282,7 +289,7 @@ J67674: CLR	R0
 J67710: MOVB	R0, (R2)+
 	INC	R3
 	SOB	R5, J67674
-	TST	J72064
+	TST	J72064		; check SidewayFl
 	BNE	J67746
 	MOV	#J72050, R3		; SymblBuff addr
 	MOV	#J72040, R2
@@ -293,23 +300,23 @@ J67740: MOVB	(R3)+, (R2)+
 J67746: MOV	#J72050, R2		; SymblBuff addr
 	TST	J72030			; chech DirectFl
 	BNE	J67766
-	CALL	J70604
+	CALL	J70604			; SymbolRotateBack
 	BR	J67772
-J67766: CALL	J70550
-J67772: MOV	J72060, R3
+J67766: CALL	J70550			; SymbolRotateFwd
+J67772: MOV	J72060, R3		; get TextInputPtr
 	MOV	#J72040, R2
-	CALL	J70336
+	CALL	J70336			; SymbolStretch
 	CALL	K42334			; MakeAttrs
 	TST	K17526			; check PixelMode
 	BEQ	J70024
 	CLR	K17524			; clear InvertFl
-J70024: CALL	J70300
+J70024: CALL	J70300			; TextMarkerDraw
 	TST	J72030			; check DirectFl
 	BNE	J70042
 	JMP	J70640
 J70042: JMP	J71004
 ;
-J70046: CALL	J71202
+J70046: CALL	J71202			; TextRowSeparator
 	MOV	(SP)+, R0
 	CMPB	R0, #000177
 	BEQ	J70150
@@ -320,7 +327,7 @@ J70072: EMT	340			; .TTYIN
 	BLO	.-2			;
 	CMPB	R0, #000104
 	BNE	J70110
-	JMP	J70702
+	JMP	J70702			; => TextPosStepLeft
 J70110: CMPB	R0, #000103
 	BNE	J70122
 	JMP	J70640
@@ -329,15 +336,15 @@ J70122: CMPB	R0, #000102
 	JMP	J71004
 J70134: CMPB	R0, #000101
 	BNE	J70146
-	JMP	J70732
+	JMP	J70732			; => TextPosStepDown
 J70146: RETURN
 J70150: TST	J72030			; check DirectFl
 	BNE	J70164
-	CALL	J70702
+	CALL	J70702			; TextPosStepLeft
 	BR	J70170
-J70164: CALL	J70732
-J70170: MOV	J72032, R3
-	MOV	J72034, R4
+J70164: CALL	J70732			; TextPosStepDown
+J70170: MOV	J72032, R3		; get TextPosX
+	MOV	J72034, R4		; get TextPosY
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	#J70224, R3
@@ -348,13 +355,13 @@ J70170: MOV	J72032, R3
 ;
 J70224: MOV	(SP)+, R4
 	MOV	(SP)+, R3
-	MOV	R3, J72032
-	MOV	R4, J72034
+	MOV	R3, J72032		; set TextPosX
+	MOV	R4, J72034		; set TextPosY
 	RETURN
 ;
-J70242: CALL	J71202
-	MOV	J72034, R2
-	MOV	J72026, R0
+J70242: CALL	J71202			; TextRowSeparator
+	MOV	J72034, R2		; get TextPosY
+	MOV	J72026, R0		; get SymbolCellHeight
 	NEG	R0
 	ADD	R0, R2
 	INC	R2
@@ -362,24 +369,29 @@ J70242: CALL	J71202
 	MOV	R2, K62376		; set Mouse Y
 	RETURN
 ;
-; Subroutine ??
-J70300: MOV	J72032, R3
-	MOV	J72034, R4
-	MOV	J72026, R0
+; Subroutine TextMarkerDraw
+; draw/erase the text-entry position marker (underline+ticks)
+; (la2c5)
+J70300: MOV	J72032, R3		; get TextPosX
+	MOV	J72034, R4		; get TextPosY
+	MOV	J72026, R0		; get SymbolCellHeight
 	NEG	R0
 	ADD	R0, R4
 	INC	R4
-	MOV	J72060, R5
+	MOV	J72060, R5		; get TextInputPtr
 	DEC	R5
 	DEC	R5
-	JMP	K16166
+	JMP	K16166			; => PutImage
 ;
-; Subroutine ??
+; Subroutine SymbolStretch
+; stretch a symbol's bitmap columns per WidthFl (normal/double/
+; treble width) while writing it into the buffer at (R3)
+; (la2d9)
 J70336: MOVB	#000010, R5
 ;
 J70342: MOV	R5, -(SP)
 	MOV	R2, -(SP)
-	MOV	J72026, R0
+	MOV	J72026, R0		; get SymbolCellHeight
 	ASR	R0
 	ASR	R0
 	ASR	R0
@@ -434,7 +446,9 @@ J70530: MOV	(SP)+, R2
 	RETURN
 J70544: JMP	J70342
 ;
-; Subroutine ??
+; Subroutine SymbolRotateFwd
+; bit-rotate SymblBuff into J72040, one direction (sideways text)
+; (la336)
 J70550: MOVB	#000010, R5
 J70554: MOV	R5, -(SP)
 	MOVB	(R2)+, R0
@@ -447,7 +461,9 @@ J70570: ROLB	R0
 	SOB	R5, J70554
 	RETURN
 ;
-; Subroutine ??
+; Subroutine SymbolRotateBack
+; bit-rotate SymblBuff into J72040, other direction (sideways text)
+; (la34a)
 J70604: MOV	#000010, R5
 J70610:	MOV	R5, -(SP)
 	MOVB	(R2)+, R0
@@ -460,10 +476,10 @@ J70624: RORB	R0
 	SOB	R5, J70610
 	RETURN
 ;
-J70640: MOV	J72024, R5
-	MOV	J72032, R0
+J70640: MOV	J72024, R5		; get SymbolCellWidth
+	MOV	J72032, R0		; get TextPosX
 	ADD	R5, R0
-	MOV	R0, J72032
+	MOV	R0, J72032		; set TextPosX
 	CMP	#000500, R0
 	BLOS	J70674
 	DEC	R0
@@ -473,19 +489,21 @@ J70640: MOV	J72024, R5
 J70674: CLR	J72032
 	BR	J71004
 ;
-; Subroutine ??
-J70702: MOV	J72024, R5
-	MOV	J72032, R0
+; Subroutine TextPosStepLeft
+; move text-entry X position left by one char cell, wrap at screen edge
+; (la374)
+J70702: MOV	J72024, R5		; get SymbolCellWidth
+	MOV	J72032, R0		; get TextPosX
 	SUB	R5, R0
-	MOV	R0, J72032
+	MOV	R0, J72032		; set TextPosX
 	BLO	J70724
 	RETURN
-J70724: MOV	#000477, J72032
-; Entry point
-J70732: MOV	J72026, R5
-	MOV	J72034, R0
+J70724: MOV	#000477, J72032		; set TextPosX
+; Subroutine TextPosStepDown (entry point)
+J70732: MOV	J72026, R5		; get SymbolCellHeight
+	MOV	J72034, R0		; get TextPosY
 	SUB	R5, R0
-	MOV	R0, J72034
+	MOV	R0, J72034		; set TextPosY
 	CMP	R0, #000030
 	BLO	J70772
 	INC	R0
@@ -494,25 +512,28 @@ J70732: MOV	J72026, R5
 	BLO	J70772
 	RETURN
 J70772: MOV	#000307, R0
-	MOV	R0, J72034
-	BR	J70702
+	MOV	R0, J72034		; set TextPosY
+	BR	J70702			; => TextPosStepLeft
 ;
-J71004: MOV	J72026, R5
-	MOV	J72034, R0
+J71004: MOV	J72026, R5		; get SymbolCellHeight
+	MOV	J72034, R0		; get TextPosY
 	ADD	R5, R0
-	MOV	R0, J72034
+	MOV	R0, J72034		; set TextPosY
 	CMP	R0, #000310
 	BHIS	J71032
 	RETURN
 J71032: MOV	#000027, R0
 	ADD	R5, R0
-	MOV	R0, J72034
+	MOV	R0, J72034		; set TextPosY
 	BR	J70640
 ;
-; Subroutine ??
+; Subroutine TextPlaceClamp
+; clamp a new character's placement position to screen bounds,
+; applying horizontal/vertical snap (TSnapHrzFl/TSnapVrtFl)
+; (la3b9)
 J71046: MOV	K62374, R3		; get Mouse X
 	MOV	K62376, R4		; get Mouse Y
-	MOV	J72024, R0
+	MOV	J72024, R0		; get SymbolCellWidth
 	ADD	R3, R0
 	CMP	R0, #000500
 	BLO	J71102
@@ -524,7 +545,7 @@ J71102: ADD	J72026, R4
 	CMP	R4, #000310
 	BLO	J71122
 	MOV	#000307, R4
-J71122: MOV	J72026, R0
+J71122: MOV	J72026, R0		; get SymbolCellHeight
 	NEG	R0
 	ADD	R4, R0
 	SUB	#000027, R0
@@ -537,21 +558,26 @@ J71144: TST	J72072			; check TSnapHrzFl
 J71156: TST	J72074			; check TSnapVrtFl
 	BEQ	J71170
 	BIS	#000007, R4
-J71170: MOV	R3, J72032
-	MOV	R4, J72034
+J71170: MOV	R3, J72032		; set TextPosX
+	MOV	R4, J72034		; set TextPosY
 	RETURN
 ;
-; Subroutine ??
+; Subroutine TextRowSeparator
+; draw the horizontal separator line at the text cursor row
+; (la3f8)
 J71202: MOVB	#000377, K17523		; set _Attrs1
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
-	MOV	J72032, R3
-	MOV	J72034, R4
-	MOV	J72024, R1
-	MOV	J72026, R2
+	MOV	J72032, R3		; get TextPosX
+	MOV	J72034, R4		; get TextPosY
+	MOV	J72024, R1		; get SymbolCellWidth
+	MOV	J72026, R2		; get SymbolCellHeight
 	JMP	K15670			; _HrzLine
 ;
-; Subroutine ??
+; Subroutine RefreshSizeChecks
+; refresh the checkmarks on the Height/Width menu items to match
+; the current HeightFl/WidthFl selection
+; (la40f)
 J71244: MOV	J72020, R0		; get HeightFl
 	MOV	#K66146, R3
 	BICB	#000002, (R3)
@@ -587,54 +613,54 @@ J71374: MOV	#K66400, R3
 J71414: RETURN
 ;
 ; TEXT_INIT:
-J71416: CALL	J71244
-	CALL	J71474
-	CALL	J71570
-	CALL	J71670
-	CALL	J71712
-	CALL	J71734
-	CALL	J71756
+J71416: CALL	J71244			; RefreshSizeChecks
+	CALL	J71474			; RedrawHeightFlag
+	CALL	J71570			; RedrawWidthFlag
+	CALL	J71670			; RedrawSidewayFlag
+	CALL	J71712			; RedrawBoldFlag
+	CALL	J71734			; RedrawCapsFlag
+	CALL	J71756			; RedrawSnapHrzFlag
 	JMP	J72000
 ;
 ; T_Height: Выбрана высота (Нормал. / Двойная / Тройная) в меню "Текст"
 J71456: MOVB	K25521, R0		; get _Attrs2
 	DEC	R0
 	MOV	R0, J72020		; set HeightFl
-	CALL	J71244
-; Entry point
+	CALL	J71244			; RefreshSizeChecks
+; Subroutine RedrawHeightFlag (entry point)
 J71474: MOV	J72020, R0		; get HeightFl
 	MOV	#000326, R3
 	MOV	#000063, R4
 	DEC	R0
-	CALL	J71642
+	CALL	J71642			; PrtTriFlag
 	MOV	#000326, R3
 	MOV	#000075, R4
 	DEC	R0
-	CALL	J71642
+	CALL	J71642			; PrtTriFlag
 	MOV	#000326, R3
 	MOV	#000107, R4
 	DEC	R0
-	BR	J71642
+	BR	J71642			; => PrtTriFlag
 ;
 ; T_Width: Выбрана ширина (Нормал. / Двойная / Тройная) в меню "Текст"
 J71550: MOVB	K25521, R0		; get _Attrs2
 	SUB	#000004, R0
 	MOV	R0, J72022		; set WidthFl
-	CALL	J71244
-; Entry point
+	CALL	J71244			; RefreshSizeChecks
+; Subroutine RedrawWidthFlag (entry point)
 J71570: MOV	J72022, R0		; get WidthFl
 	MOV	#000326, R3
 	MOV	#000123, R4
 	DEC	R0
-	CALL	J71642
+	CALL	J71642			; PrtTriFlag
 	MOV	#000326, R3
 	MOV	#000135, R4
 	DEC	R0
-	CALL	J71642
+	CALL	J71642			; PrtTriFlag
 	MOV	#000326, R3
 	MOV	#000147, R4
 	DECB	R0
-; Entry point
+; Subroutine PrtTriFlag (entry point)
 J71642: MOV	R0, -(SP)
 	BEQ	J71652
 	CLR	R0
@@ -644,39 +670,39 @@ J71654: CALL	K17070			; PrtFlag_V
 	MOV	(SP)+, R0
 	RETURN
 ;
-; T_Sideway: Выбрано "Сторона" в меню "Текст"
+; T_Sideway: Selected "Сторона" in menu "Текст"
 J71664: COM	J72064			; invert SidewayFl
-; Entry point
+; Subroutine RedrawSidewayFlag (entry point)
 J71670: MOV	J72064, R0		; get SidewayFl
 	MOV	#000256, R3
 	MOV	#000163, R4
 	BR	J72014			; PrtFlagXY
 ;
-; T_Bold: Выбрано "Полужирный" в меню "Текст"
+; T_Bold: Selected "Полужирный" in menu "Текст"
 J71706: COM	J72066			; invert BoldFl
-; Entry point
+; Subroutine RedrawBoldFlag (entry point)
 J71712: MOV	J72066, R0		; get BoldFl
 	MOV	#000316, R3
 	MOV	#000175, R4
 	BR	J72014			; PrtFlagXY
 ;
-; T_Caps: Выбрано "Верхн. ряд" в меню "Текст"
+; T_Caps: Selected "Верхн. ряд" in menu "Текст"
 J71730: COM	J72070			; invert CapsFl
-; Entry point
+; Subroutine RedrawCapsFlag (entry point)
 J71734: MOV	J72070, R0		; get CapsFl
 	MOV	#000270, R3
 	MOV	#000207, R4
 	BR	J72014			; PrtFlagXY
 ;
-; T_SnapHrz: Выбрано "Snap hrz." в меню "Текст"
+; T_SnapHrz: Selected "Snap hrz." in menu "Текст"
 J71752: COM	J72072			; invert TSnapHrzFl
-; Entry point
+; Subroutine RedrawSnapHrzFlag (entry point)
 J71756: MOV	J72072, R0		; get TSnapHrzFl
 	MOV	#000316, R3
 	MOV	#000223, R4
 	BR	J72014			; PrtFlagXY
 ;
-; T_SnapVrt: Выбрано "Snap vrt." в меню "Текст"
+; T_SnapVrt: Selected "Snap vrt." in menu "Текст"
 J71774: COM	J72074			; invert TSnapVrtFl
 ; Entry point
 J72000: MOV	J72074, R0		; get TSnapVrtFl
@@ -686,16 +712,16 @@ J72014: JMP	K17154			; PrtFlagXY
 ;
 J72020: .WORD	000003			; HeightFl
 J72022: .WORD	000001			; WidthFl
-J72024: .WORD	0			; ?? (la505)
-J72026: .WORD	0			; ?? (la506)
+J72024: .WORD	0			; SymbolCellWidth (la505)
+J72026: .WORD	0			; SymbolCellHeight (la506)
 J72030: .WORD	0			; DirectFl
-J72032: .WORD	0			; ?? (la508)
-J72034: .WORD	0			; ?? (la509)
+J72032: .WORD	0			; TextPosX (la508)
+J72034: .WORD	0			; TextPosY (la509)
 J72036: .WORD	0			; ?? (la50a)
-J72040: .WORD	0			; ?? (la50b)
+J72040: .WORD	0			; SymbolBuf (la50b)
 	.BLKW	3.
 J72050: .BLKW	4.			; SymblBuff
-J72060: .WORD	0			; ??
+J72060: .WORD	0			; TextInputPtr
 J72062: .WORD	0			; ?? (la51b)
 J72064: .WORD	0			; SidewayFl: Флаг "Сторона"
 J72066: .WORD	0			; BoldFl: Флаг "Полужирный"
@@ -761,7 +787,7 @@ J72166: .WORD	000000,000000,000500,000304
 	.WORD	000000
 	.WORD	177777
 ;
-; FontCapture: Выбрано "Захват шрифта" в меню "Смесь"
+; FontCapture: Selected "Захват шрифта" in menu "Смесь"
 J72544: MOV	K56122, R1		; get WindEndX
 	MOV	K56124, R2		; get WindEndY
 	MOV	K56116, R3		; get WindBegX
@@ -775,7 +801,7 @@ J72606: MOV	R1, -(SP)
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	R5, -(SP)
-	CALL	J72726
+	CALL	J72726			; FontCaptureRow
 	MOV	(SP)+, R5
 	INC	R5
 	MOV	(SP)+, R4
@@ -802,11 +828,14 @@ J72710: BISB	#000002, J77050
 	CLR	K56110			; clear WindDefFl
 	JMP	J75632			; NewFont
 ;
-; Subroutine ??
+; Subroutine FontCaptureRow
+; collect one bitmap row of the captured window into R5 (font byte
+; buffer), shifting by the column's bit offset (K25516)
+; (F_Capt1/F_Capt2 in 016-fonted.asm)
 J72726: MOV	K25524, <J73100+2>
 	MOV	R3, K25516
 	BIC	#177770, K25516		; 0..7
-	CALL	K30060
+	CALL	K30060			; PixAddr0Attr
 J72752:	MTPS	#000340			; disable interrupts
 	BIC	#000140, K25506
 	MOV	K25506, @#177400	; Memory control MS0515
@@ -843,7 +872,7 @@ J73132: BHIS	J73136
 	RETURN
 J73136: BR	J72752
 ;
-; CHAR_MENU: Выбрано "Символ" в окне "Редактор шрифта"
+; CHAR_MENU: Selected "Символ" в окне "Редактор шрифта"
 J73140: .WORD	000050,000020,000130,000150
 	.BYTE	140,027
 	.WORD	000000			; exit
@@ -880,7 +909,7 @@ J73140: .WORD	000050,000020,000130,000150
 	.WORD	000000
 	.WORD	177777
 ;
-; FONT_MENU: Выбрано "Шрифт" в окне "Редактор шрифта"
+; FONT_MENU: Selected "Шрифт" в окне "Редактор шрифта"
 J73500: .WORD	000150,000020,000130,000150
 	.BYTE	140,027
 	.WORD	000000			; exit
@@ -983,11 +1012,11 @@ J74250: MOV	R0, -(SP)
 	CALL	J75002			; LensCurChar
 	JMP	J75020			; LensNxtChar
 J74304: MOV	R3, -(SP)
-	CALL	J74434
+	CALL	J74434			; JumpIndirect
 	MOV	(SP)+, R3
 	MOV	#001777, R5
 	CALL	K25244			; EXX
-J74324: CALL	J74410
+J74324: CALL	J74410			; ScanFireBreak
 	CALL	K12054			; PutCursor
 	CALL	K25244			; EXX
 J74340: NOP
@@ -995,15 +1024,18 @@ J74340: NOP
 	MOVB	#000012, K25521		; set _Attrs2
 	CALL	K25244			; EXX
 	CALL	K13110			; JCursHide: Restore area under cursor
-	CALL	J74410
+	CALL	J74410			; ScanFireBreak
 	CALL	K25244			; EXX
 	MOV	R3, -(SP)
 	CALL	K25244			; EXX
 	MOV	(SP)+, R3
-	CALL	J74434
+	CALL	J74434			; JumpIndirect
 	BR	J74324
 ;
-; Subroutine ??
+; Subroutine ScanFireBreak
+; poll ScanKey, pop the caller off the stack (break the char-scroll
+; loop) once fire/select is pressed
+; (ScanFire in 016-fonted.asm)
 J74410: CALL	K45776			; Read input and set ScanCode
 	MOV	K46222, R0		; get ScanCode
 	BIT	#177757, R0
@@ -1012,7 +1044,9 @@ J74410: CALL	K45776			; Read input and set ScanCode
 J74430: MOV	(SP)+, R3
 	RETURN
 ;
-; Subroutine ??
+; Subroutine JumpIndirect
+; jump indirect through R3
+; (_jphl_ in 016-fonted.asm)
 J74434: JMP	(R3)
 ;
 ; Subroutine CharCursor
@@ -1020,7 +1054,7 @@ J74436: MOVB	#000377, K17523		; set _Attrs1
 	CLR	K17524			; clear InvertFl
 	MOV	SP, K17526		; set PixelMode
 	MOV	J77142, R0		; get CurChar
-	CALL	J75242
+	CALL	J75242			; CharGridXY
 	DEC	R3
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
@@ -1143,7 +1177,7 @@ J75150: CLR	R4
 	ASL	R3
 	ADD	#K01402, R3		; + Font2
 	MOV	R3, -(SP)
-	CALL	J75242
+	CALL	J75242			; CharGridXY
 	MOV	R3, -(SP)
 	MOV	R4, -(SP)
 	MOV	#000010, R1
@@ -1156,7 +1190,10 @@ J75150: CLR	R4
 	MOV	(SP)+, R2
 	JMP	K16672			; PixPrint
 ;
-; Subroutine ??
+; Subroutine CharGridXY
+; compute screen X/Y (R4/R3 row base) for character index R0 in the
+; font editor's 5-row character grid
+; (SetCharXY in 016-fonted.asm)
 J75242: MOV	#000212, R4
 	CMP	R0, #000040
 	BLO	J75336
@@ -1271,14 +1308,14 @@ J75752: COMB	(R5)+			; invert byte
 	SOB	R1, J75752		; repeat
 	JMP	J75676			; NewCurChar
 ;
-; FontInvert: Выбрано "Инверт" в меню "Шрифт"
+; FontInvert: Selected "Инверт" in menu "Шрифт"
 J75762: MOV	#K01402, R3		; Font2
 	MOV	#002400, R1		; 1280. = 160. * 8.
 J75772: COMB	(R3)+			; invert byte
 	SOB	R1, J75772		; repeat
 	JMP	J75632			; NewFont
 ;
-; CharFlipHrz: Выбрано "Flip hrz." в меню "Символ"
+; CharFlipHrz: Selected "Flip hrz." in menu "Символ"
 J76002: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	CALL	J76022			; CharFHrz
@@ -1294,7 +1331,7 @@ J76030: MOVB	(R3), R0
 	SOB	R1, J76030
 	RETURN
 ;
-; FontFHrz: Выбрано "Flip hrz." в меню "Шрифт"
+; FontFHrz: Selected "Flip hrz." in menu "Шрифт"
 J76050: MOV	#K01402, R5		; Font2
 	MOV	#000240, R1
 J76060: MOV	R1, -(SP)
@@ -1306,7 +1343,7 @@ J76060: MOV	R1, -(SP)
 	SOB	R1, J76060
 	JMP	J75632			; NewFont
 ;
-; CharFlipVrt: Выбрано "Flip vrt." в меню "Символ"
+; CharFlipVrt: Selected "Flip vrt." in menu "Символ"
 J76106: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	MOV	#000010, R1		; 8.
@@ -1325,7 +1362,7 @@ J76146: ROR	R0
 	MOVB	K25520, (R5)+
 	RETURN
 ;
-; FontFVrt: Выбрано "Flip vrt." в меню "Шрифт"
+; FontFVrt: Selected "Flip vrt." in menu "Шрифт"
 J76164: MOV	#K01402, R5		; Font2
 	MOV	#002400, R1		; 1280. = 160. * 8.
 J76174: MOV	R1, -(SP)
@@ -1334,7 +1371,7 @@ J76174: MOV	R1, -(SP)
 	SOB	R1, J76174
 	JMP	J75632			; NewFont
 ;
-; CharRotate: Выбрано "Flip vrt." в меню "Символ"
+; CharRotate: Selected "Flip vrt." in menu "Символ"
 J76212: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	CALL	J76232			; CharRot1
@@ -1362,7 +1399,7 @@ J76310: MOVB	(R3)+, (R5)+		; copy byte
 	SOB	R1, J76310		; repeat
 	RETURN
 ;
-; FontRotate: Выбрано "Поворот 1-4" в меню "Шрифт"
+; FontRotate: Selected "Поворот 1-4" in menu "Шрифт"
 J76316: MOV	#K01402, R5		; Font2
 	MOV	#000240, R1		; 160. symbols
 J76326: MOV	R1, -(SP)
@@ -1374,7 +1411,7 @@ J76326: MOV	R1, -(SP)
 	SOB	R1, J76326		; repeat
 	JMP	J75632			; NewFont
 ;
-; CharScrlRight: Выбрано "Сдвиг вправ." в меню "Символ"
+; CharScrlRight: Selected "Сдвиг вправ." in menu "Символ"
 J76354: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	MOV	#000010, R1		; 8.
@@ -1384,7 +1421,7 @@ J76370: MOVB	(R5), K25524
 	SOB	R1, J76370		; repeat
 	JMP	J75676			; NewCurChar
 ;
-; FontRight: Выбрано "Сдвиг вправ." в меню "Шрифт"
+; FontRight: Selected "Сдвиг вправ." in menu "Шрифт"
 J76410: MOV	#K01402, R3		; Font2
 	MOV	#002400, R1		; 1280. = 160. * 8.
 J76420: MOVB	(R3), K25524
@@ -1393,7 +1430,7 @@ J76420: MOVB	(R3), K25524
 	SOB	R1, J76420
 	JMP	J75632			; NewFont
 ;
-; CharScrlDown: Выбрано "Сдвиг вниз" в меню "Символ"
+; CharScrlDown: Selected "Сдвиг вниз" in menu "Символ"
 J76440: MOV	J77142, R0		; get CurChar
 	CALL	J75066			; CharAddr
 	CALL	J76460			; CharScrlDn1
@@ -1408,7 +1445,7 @@ J76472: MOVB	000006(R5), 000007(R5)
 	MOVB	K25520, 000010(R5)
 	RETURN
 ;
-; FontDown: Выбрано "Сдвиг вниз" в меню "Шрифт"
+; FontDown: Selected "Сдвиг вниз" in menu "Шрифт"
 J76514: MOV	#K01402, R5		; Font2
 	MOV	#000240, R1		; 160. symbols
 J76524: MOV	R1, -(SP)
@@ -1421,7 +1458,7 @@ J76524: MOV	R1, -(SP)
 	SOB	R1, J76524
 	JMP	J75632			; NewFont
 ;
-; FontCopyROM: Выбрано "Копировн. ПЗУ" в меню "Смесь"
+; FontCopyROM: Selected "Копировн. ПЗУ" in menu "Смесь"
 J76554: MOV	<K64624+2>, R3
 	MOV	#K01402, R2		; Font2
 	MOV	#002400, R1		; 1280. = 160. * 8.
@@ -1430,7 +1467,7 @@ J76570: MOVB	(R3)+, (R2)+		; copy byte
 	CLR	J77142			; clear CurChar
 	JMP	J75632			; NewFont
 ;
-; FONTCLEAR_MENU: Выбрано "Очистить" в "Редактор шрифта" / "Символ"
+; FONTCLEAR_MENU: Selected "Очистить" в "Редактор шрифта" / "Символ"
 J76604: .WORD	000130,000040,000230,000050
 	.BYTE	340,071
 	.WORD	000000			; exit
@@ -1454,7 +1491,7 @@ J76732: BICB	#000002, J77050
 J76750: BISB	#000002, J77050
 	RETURN
 ;
-; FONTMISC_MENU: Выбрано "Смесь" в "Редактор шрифта"
+; FONTMISC_MENU: Selected "Смесь" в "Редактор шрифта"
 J76760: .WORD	000210,000020,000150,000060
 	.BYTE	140,027
 	.WORD	000000			; exit
