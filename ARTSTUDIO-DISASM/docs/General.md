@@ -183,6 +183,72 @@ the `FilenameEdit`/`FilenamePutChar` UI layer as-is.
 - Printer output goes through `SendToPrinter` (`K65356`) and a serial UART control
   register (`@#177722`) — also MS-0515/RT-11-specific, no Z80 origin.
 
+## Self-modifying code
+
+The program writes into its own instruction stream in 13 places, all marked in the
+source with `!!MUT-...!!` comments. There are two distinct idioms, with very different
+porting implications.
+
+### Idiom A — patched opcode (true self-modifying code)
+
+Only one case, but the important one.
+
+**`CursSave` / `CursorHide` copy loop** (`ART.MAC`, `K13230`/`K13232`/`K13234`)
+
+Three consecutive `NOP`s in the inner loop of the shared save/restore routine
+(`K13166`). Before the loop runs, the caller loads R0 with a *complete PDP-11
+instruction word* and stores it over all three `NOP`s:
+
+| Caller | R0 value | Instruction written | Effect |
+|---|---|---|---|
+| `CursSave` (`K13114`) | `012321` | `MOV (R3)+,(R1)+` | screen → buffer |
+| `CursorHide` (`K13142`) | `012123` | `MOV (R1)+,(R3)+` | buffer → screen |
+
+One loop body serves both directions; the direction is chosen by rewriting the
+instructions rather than by branching. Three copies are patched so three words move per
+iteration without loop overhead.
+
+This is the only place where an *opcode* is modified. Everything else below only
+modifies operand words.
+
+### Idiom B — immediate operand used as a variable slot
+
+The other 12 cases exploit PDP-11 immediate addressing: the literal word embedded in an
+instruction is also a perfectly good memory location, so the program uses it as a named
+variable and refers to it as `<Label+offset>`. Executing the instruction writes the
+slot; other code reads and updates it directly. This saves a word of data storage per
+variable — a real concern in a program this size.
+
+The instruction still executes normally; only the embedded literal changes. Note that
+`<Label+2>` is the operand word and `<Label+3>` is that word's high byte.
+
+| Site | Instruction | Slot used as | Written by |
+|---|---|---|---|
+| `K16654` (`ImageTrailShift`) | `MOV #000050, #000000` | bytes remaining to right screen edge (40. minus X/8) | executing the instruction, then `SUB R3, <K16654+4>` |
+| `K16552` (`PutImage`) | `DEC #00001` | per-row column counter | `MOV <K16654+4>, <K16552+2>` |
+| `K16754` (`PixPrint`) | `CLR #000000` | 16-bit shift register for sub-byte glyph placement — glyph byte goes into the high half (`<K16754+3>`), `ROR <K16754+2>` aligns it, both halves are then written to screen | the `CLR` itself, plus `BISB (R2)+, <K16754+3>` |
+| `K23202` (Save file) | `MOV SP, #000000` | save/load direction flag — *executing* it stores nonzero SP = "save" | `CLR <K23202+2>` at `K23210` sets "load" |
+| `K23720` | `MOV #000000, SP` | general scratch: saved SP during file ops; also reused in `ART2.MAC` as a saved-PSW slot (`MFPS`/`MTPS <K23720+2>`) | `MOV SP, <K23720+2>` in several places |
+| `K64624` | `MOV #000000, R2` | current font base address — executing it loads R2 from the slot | `MOV R0, <K64624+2>` at `K24654` |
+| `K42750` (`SetBorder`) | `MOV R0, #000000` | stores the computed border value — **no reader found anywhere in the source**; appears vestigial | the instruction itself |
+| `L66104` (`ART2.MAC`) | `JMP @#L66104` | fill-mode dispatch vector, self-referential until patched | `FillTexture` writes `#L65642`, `FillWashTexure` writes `#L67220` |
+| `L70776`, `L71044` (`ART2.MAC`) | `CMP R0, #177747` / `CMP R0, #000337` | top and bottom row bounds for the current virtual screen page | the `L66706` block: page index (`K30532`) × 8, negated, ±offset |
+
+### Porting implications
+
+- **Idiom A cannot survive** a port to any target where code is in ROM, is
+  write-protected, or where an instruction cache is not flushed on write. It needs
+  rewriting as either two separate loops or one loop with a direction flag. The
+  performance motive (avoiding a per-word branch) matters much less on a target that
+  isn't cycle-starved.
+- **Idiom B is mechanical to remove** — each slot becomes an ordinary `.WORD` and the
+  instruction takes a normal memory operand. Watch for the two cases where *executing*
+  the instruction is what sets the value (`K23202`, `K16654`): converting those needs an
+  explicit store added, or the surrounding logic breaks silently.
+- `K42750` can simply be deleted once confirmed no reader exists.
+- All 13 sites are greppable via the `MUT` marker, so the checklist is easy to
+  regenerate: `grep -n "MUT" *.MAC`.
+
 ## Porting notes
 
 The hardware/OS coupling points that will need rework for a UKNC or BK port, roughly in
@@ -194,14 +260,20 @@ order of how deeply embedded they are in the drawing code:
    everything calling it (nearly every drawing primitive) depends on its contract
    (X/Y in, screen byte address out) staying the same even if the internals change.
 2. **Bank-switching sequences** — scattered inline throughout (see above), not behind
-   a single abstraction. Needs either a search-and-replace sweep or introducing a
-   thin wrapper before porting further.
-3. **RAD-50 filenames / RT-11 file I/O** — see "File I/O" above. The `EMT 375`
+   a single abstraction. **105 writes to `@#177400`** across the three files (ART.MAC 96,
+   ART1.MAC 3, ART2.MAC 6), plus 19 interrupt-disable blocks (`MTPS #000340`). Too many
+   to convert by hand one at a time — either wrap the pattern in a MACRO-11 `.MACRO`
+   first (can be done in the current source without changing the assembled bytes; verify
+   with `fc /b`) or accept a very large mechanical diff.
+3. **Self-modifying code** — 13 sites, see the section above. The `CursSave`/`CursorHide`
+   opcode patch must be restructured; the other 12 are mechanical operand-slot
+   conversions.
+4. **RAD-50 filenames / RT-11 file I/O** — see "File I/O" above. The `EMT 375`
    command-block format is RT-11-specific and only partially documented here; needs
    full reverse-engineering before a port can replace it.
-4. **Printer support** — isolated already (`SendToPrinter`, `ComputePrintPitch`,
+5. **Printer support** — isolated already (`SendToPrinter`, `ComputePrintPitch`,
    `RefreshPrintFlags`), no Z80 origin to preserve, easiest to either drop or rewrite
    fresh for the target.
-5. Everything else (menu engine, cursor handling, paint/shape/fill/text/font-editor
+6. Everything else (menu engine, cursor handling, paint/shape/fill/text/font-editor
    logic) is either architecture-neutral PDP-11 code or has a confirmed Z80 origin —
    see `z80-crossref.md` for what maps where.

@@ -4,14 +4,14 @@
 ; Overlay #2
 ; Size of this overlay: 2289. words
 
-; Подготовка меню "Заливка"
+; Initialize menu "Заливка"
 ; FillTexture
 ; FillWashTexure
 ; Select texture ("Выбери текстуру") menu
 ; Edit texture ("Ред. тектуры") menu procedures
 
 ; Overlay call
-; Подготовка меню FILL_MENU
+; Initialize menu FILL_MENU
 FILLIT::
 L65634:	RETURN
 ;
@@ -116,7 +116,7 @@ L66202: MOVB	(R3)+, (R2)+
 ;
 L66252:	.ASCII	/экрана :/
 ;
-; SELTEX_INIT: Подготовка меню "Выбери текстуру"
+; SELTEX_INIT: Initialize menu "Выбери текстуру"
 L66262: MOV	#K10330, R5		; TextureAddr
 	MOV	#000037, R3
 	MOV	#000067, R4

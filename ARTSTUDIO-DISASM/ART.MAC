@@ -3100,7 +3100,7 @@ K33204: CALL	K30754			; CurBrashAddr
 	MOV	#K33576, R5		; EDBRSH_MENU
 	JMP	K32520
 ;
-; EDBRSH_INIT: Подготовка меню
+; EDBRSH_INIT: Initialize menu
 K33420: CALL	K30754			; CurBrashAddr
 	MOVB	(R5)+, R1
 	MOVB	(R5)+, R2
@@ -3164,7 +3164,7 @@ K33732:	.WORD	000160,000040,000131,000131, K30720	; ED_MASK
 ; PaintInverse: Выбран пункт "Инверт" в выпадающем меню "Кисти"
 K33770: COM	K21252			; invert DefInvFl
 ;
-; PAINT_INIT: Подготовка меню "Кисти"
+; PAINT_INIT: Initialize menu "Кисти"
 K33774: CALL	K17144			; PrtFlagXYStack
 	.WORD	K21252, 000226, 000103
 ;
@@ -3497,7 +3497,7 @@ K35422: INC	R3
 	SOB	R5, K35264
 	RETURN
 ;
-; MISC_INIT: Подготовка меню "Смесь"
+; MISC_INIT: Initialize menu "Смесь"
 K35464: TST	K56110			; check WindDefFl
 	BNE	K35502
 	BISB	#000002, K36020		; set bit1
@@ -3698,7 +3698,7 @@ K37524: MOV	#K37036, R3
 	BISB	#000002, (R3)
 K37544: RETURN
 ;
-; PRINT_INIT: Подготовка меню "Печать"
+; PRINT_INIT: Initialize menu "Печать"
 K37546: CALL	K37210			; RefreshPrintFlags
 	CALL	K40002			; RedrawPrintQualityFlag
 	CALL	K40100			; RedrawPrintPitchFlag
@@ -4366,7 +4366,7 @@ K43372: CLR	K45740			; clear _Ink
 	MOV	K45744, R0		; get _Border
 	JMP	K42704			; SetBorder
 ;
-; ATTRS_INIT: Подготовка меню "Аттрб."
+; ATTRS_INIT: Initialize menu "Аттрб."
 K43442: CALL	K17134			; PrtFlagXYInline
 	.WORD	K21250,000122,000125
 K43454: CALL	K17144			; PrtFlagXYStack
@@ -4415,7 +4415,7 @@ K43466: .WORD	000060,000000,000130,000210
 	.WORD	000000
 	.WORD	177777
 ;
-; INK_INIT: Подготовка меню
+; INK_INIT: Initialize menu
 K44076: MOV	#000027, R3
 	MOV	#000047, R4
 	CALL	K17530			; PutAttrs
@@ -4457,7 +4457,7 @@ K44176: .WORD	000010,000020,000360,000070
 	.BYTE	364,000
 	.WORD	177777
 ;
-; PAPER_INIT: Подготовка меню
+; PAPER_INIT: Initialize menu
 K44314: MOV	#000027, R3
 	MOV	#000057, R4
 	CALL	K17530			; PutAttrs
@@ -4483,7 +4483,7 @@ K44350: .WORD	000010,000030,000360,000070
 	.BYTE	364,000
 	.WORD	177777
 ;
-; BORDER_INIT: Подготовка меню
+; BORDER_INIT: Initialize menu
 K44466: MOV	#000027, R3
 	MOV	#000077, R4
 	CALL	K17530			; PutAttrs
@@ -5904,7 +5904,7 @@ K55050:	COM	K56112			; invert MultyFl
 	CALL	K17144			; PrtFlagXYStack
 	.WORD	K56112,000101,000154
 ;
-; WIND_INIT: Подготовка меню
+; WIND_INIT: Initialize menu
 K55066:	CALL	K60306			; BoxToWindow
 	MOV	#K56156, R3
 	MOV	#000014, R0		; 12.
@@ -6571,7 +6571,7 @@ K60524: .WORD	000030,000010,000170,000110
 	.WORD	000000
 	.WORD	177777
 ;
-; FILL_INIT: Подготовка меню "Заливка"
+; FILL_INIT: Initialize menu "Заливка"
 K61004: CALL	FILLIT	;001142
 K61010: RETURN
 ;
